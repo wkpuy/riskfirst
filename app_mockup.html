@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>RiskFirst — Trading Assistant</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root { --safe-top: env(safe-area-inset-top,0px); --safe-bottom: env(safe-area-inset-bottom,0px); }
+  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif; overscroll-behavior:none; background:#0a0a0f; }
+  ::-webkit-scrollbar { display:none; } * { scrollbar-width:none; }
+
+  /* Dark */
+  .dark-card  { background:#12131a; border:1px solid #1e2030; border-radius:16px; }
+  .dark-card2 { background:#1a1b26; border:1px solid #2a2d40; border-radius:16px; }
+  .dark-input { background:#0e0f18; border:1px solid #2a2d45; color:#e8eaf0; border-radius:10px; padding:10px 14px; width:100%; font-size:16px; outline:none; }
+  .dark-input:focus { border-color:#7c6af7; }
+
+  /* Light (VI module) */
+  .light-bg   { background:#f2f4f8; color:#1a1d2e; }
+  .light-card { background:#fff; border:1px solid #e8eaef; border-radius:16px; }
+  .light-input{ background:#f8f9fc; border:1px solid #d8dae8; color:#1a1d2e; border-radius:10px; padding:10px 14px; width:100%; font-size:16px; outline:none; }
+  .light-input:focus { border-color:#3b7af8; }
+
+  /* Pills */
+  .pill { border-radius:999px; padding:2px 10px; font-size:11px; font-weight:700; display:inline-block; }
+  .pill-green  { background:rgba(34,197,94,.15);  color:#22c55e; }
+  .pill-red    { background:rgba(239,68,68,.15);  color:#ef4444; }
+  .pill-orange { background:rgba(245,158,11,.15); color:#f59e0b; }
+  .pill-purple { background:rgba(124,106,247,.15);color:#7c6af7; }
+  .pill-blue   { background:rgba(59,130,246,.15); color:#3b82f6; }
+  .pill-gray   { background:rgba(107,114,128,.15);color:#9ca3af; }
+
+  /* Capital badges */
+  .cap-green  { background:rgba(34,197,94,.12);  color:#22c55e; border:1px solid rgba(34,197,94,.25);  border-radius:8px; padding:4px 10px; font-size:12px; font-weight:700; }
+  .cap-yellow { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.25); border-radius:8px; padding:4px 10px; font-size:12px; font-weight:700; }
+  .cap-red    { background:rgba(239,68,68,.12);  color:#ef4444; border:1px solid rgba(239,68,68,.25);  border-radius:8px; padding:4px 10px; font-size:12px; font-weight:700; }
+
+  /* Buttons */
+  .btn-primary { border-radius:12px; padding:14px; font-size:16px; font-weight:700; cursor:pointer; transition:all .1s; border:none; width:100%; }
+  .btn-primary:active { transform:scale(.97); }
+  .btn-sm { border-radius:10px; padding:8px 14px; font-size:14px; font-weight:600; cursor:pointer; transition:all .1s; border:none; }
+  .btn-sm:active { transform:scale(.96); }
+
+  /* Nav */
+  .bottom-nav { position:fixed; bottom:0; left:0; right:0; padding-bottom:var(--safe-bottom); z-index:100; }
+
+  /* Tabs */
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* Progress */
+  .prog-bar  { height:6px; border-radius:999px; background:#2a2d45; overflow:hidden; }
+  .prog-fill { height:100%; border-radius:999px; transition:width .5s ease; }
+  .prog-bar-sm { height:4px; border-radius:999px; background:#2a2d45; overflow:hidden; }
+
+  /* Toggles */
+  .toggle-wrap  { background:#1e2030; border-radius:999px; padding:3px; display:flex; }
+  .tog-opt      { padding:6px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; }
+  .tog-opt.active    { background:#7c6af7; color:white; }
+  .tog-opt:not(.active) { color:#6b7280; }
+
+  .toggle-wrap-l  { background:#e8eaef; border-radius:999px; padding:3px; display:flex; }
+  .tog-opt-l      { padding:6px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; }
+  .tog-opt-l.active    { background:#3b7af8; color:white; }
+  .tog-opt-l:not(.active) { color:#9ca3af; }
+
+  /* Segmented */
+  .seg { display:flex; background:rgba(255,255,255,.07); border-radius:10px; padding:2px; }
+  .seg button { flex:1; padding:7px 0; border:none; background:transparent; color:#9ca3af; font-size:13px; font-weight:600; border-radius:8px; cursor:pointer; transition:all .2s; }
+  .seg button.active { background:#2a2d45; color:white; }
+
+  .seg-l { display:flex; background:rgba(0,0,0,.07); border-radius:10px; padding:2px; }
+  .seg-l button { flex:1; padding:7px 0; border:none; background:transparent; color:#9ca3af; font-size:13px; font-weight:600; border-radius:8px; cursor:pointer; transition:all .2s; }
+  .seg-l button.active { background:white; color:#1a1d2e; box-shadow:0 1px 4px rgba(0,0,0,.12); }
+
+  /* Sheet */
+  .sheet-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:200; display:none; backdrop-filter:blur(4px); }
+  .sheet { position:fixed; bottom:0; left:0; right:0; border-radius:20px 20px 0 0; z-index:201; transform:translateY(100%); transition:transform .35s cubic-bezier(.32,.72,0,1); }
+  .sheet.open { transform:translateY(0); }
+  .sheet-handle { width:36px; height:4px; border-radius:2px; background:rgba(255,255,255,.2); margin:10px auto 16px; }
+
+  /* SEPA row */
+  .sepa-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+  .sepa-row:last-child { border-bottom:none; }
+  .chk-circle { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:11px; font-weight:700; }
+  .chk-pass { background:rgba(34,197,94,.15); color:#22c55e; }
+  .chk-fail { background:rgba(239,68,68,.15); color:#ef4444; }
+
+  /* Regime bars */
+  .regime-bull { background:linear-gradient(90deg,rgba(34,197,94,.1),rgba(34,197,94,.04)); border-left:3px solid #22c55e; }
+  .regime-bear { background:linear-gradient(90deg,rgba(239,68,68,.1),rgba(239,68,68,.04)); border-left:3px solid #ef4444; }
+
+  /* Animations */
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:.45} }
+  .fade-in { animation:fadeIn .3s ease both; }
+  .pulse   { animation:pulse 2s ease-in-out infinite; }
+
+  /* Score breakdown bar */
+  .score-comp { display:flex; height:8px; border-radius:4px; overflow:hidden; gap:1px; }
+  .score-seg  { border-radius:2px; transition:width .6s ease; }
+
+  /* Input no spinner */
+  input[type=number] { -moz-appearance:textfield; }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; }
+
+  /* Range */
+  input[type=range] { -webkit-appearance:none; width:100%; height:4px; border-radius:2px; background:#2a2d45; outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:#7c6af7; cursor:pointer; box-shadow:0 2px 6px rgba(124,106,247,.5); }
+
+  /* Toggle switch (on/off) */
+  .switch { position:relative; width:44px; height:26px; flex-shrink:0; }
+  .switch input { opacity:0; width:0; height:0; }
+  .slider { position:absolute; inset:0; background:#2a2d45; border-radius:13px; transition:.3s; cursor:pointer; }
+  .slider:before { content:''; position:absolute; width:20px; height:20px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; }
+  input:checked + .slider { background:#7c6af7; }
+  input:checked + .slider:before { transform:translateX(18px); }
+
+  /* Top-5 rank badge */
+  .rank-badge { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0; }
+  .rank-1 { background:linear-gradient(135deg,#f59e0b,#d97706); color:white; }
+  .rank-2 { background:linear-gradient(135deg,#9ca3af,#6b7280); color:white; }
+  .rank-3 { background:linear-gradient(135deg,#cd7c54,#b45309); color:white; }
+  .rank-n { background:#1e2030; color:#9ca3af; }
+
+  .ticker { font-family:'SF Mono','Fira Code',monospace; font-weight:700; letter-spacing:.03em; }
+  .page   { min-height:100vh; padding-bottom:100px; }
+  .label-sm { font-size:12px; color:#9ca3af; font-weight:600; margin-bottom:6px; }
+
+  /* Warn / info boxes */
+  .warn-box  { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25); border-radius:10px; padding:12px 14px; }
+  .error-box { background:rgba(239,68,68,.08);  border:1px solid rgba(239,68,68,.25);  border-radius:10px; padding:12px 14px; }
+  .info-box  { background:rgba(124,106,247,.08);border:1px solid rgba(124,106,247,.25); border-radius:10px; padding:12px 14px; }
+
+  /* Capital guide table */
+  .cap-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+  .cap-row:last-child { border-bottom:none; }
+
+  /* Horizontal scroll chips */
+  .chip-scroll { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+  .chip { background:#1e2030; border:1px solid #2a2d45; border-radius:999px; padding:5px 14px; font-size:12px; font-weight:600; color:#9ca3af; white-space:nowrap; cursor:pointer; transition:all .15s; }
+  .chip.active { background:#7c6af7; border-color:#7c6af7; color:white; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+<!-- STATUS BAR SPACER -->
+<div style="height:max(env(safe-area-inset-top),44px);"></div>
+
+<!-- ========== STICKY HEADER ========== -->
+<div id="appHeader" style="padding:0 16px 12px; position:sticky; top:max(env(safe-area-inset-top),44px); z-index:50; background:#0a0a0f; border-bottom:1px solid #1e2030;">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div style="width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#7c6af7,#4f46e5); display:flex; align-items:center; justify-content:center; font-size:14px;">📈</div>
+      <span style="font-size:17px; font-weight:800; color:#e8eaf0; letter-spacing:-.3px;">RiskFirst</span>
+    </div>
+    <div class="toggle-wrap" id="modToggle">
+      <div class="tog-opt active" id="mod1Btn" onclick="switchModule('dark')">Trader</div>
+      <div class="tog-opt" id="mod2Btn" onclick="switchModule('light')">Value</div>
+    </div>
+  </div>
+  <!-- Regime -->
+  <div id="regimeBar" class="regime-bull" style="border-radius:10px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div id="regimeDot" style="width:8px; height:8px; border-radius:50%; background:#22c55e;" class="pulse"></div>
+      <span id="regimeText" style="font-size:13px; font-weight:700; color:#22c55e;">Market Regime: BULL</span>
+    </div>
+    <span style="font-size:11px; color:#6b7280;">SPY 541 · QQQ 463 &gt; MA200</span>
+  </div>
+</div>
+
+<!-- ========== PAGES ========== -->
+<div id="mainContent" style="overflow-y:auto; -webkit-overflow-scrolling:touch;">
+
+  <!-- ===== PAGE: SCAN ===== -->
+  <div id="page-scan" class="tab-content active page" style="padding:16px;">
+
+    <!-- Universe Status -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+      <div style="font-size:13px; font-weight:700; color:#6b7280; text-transform:uppercase; letter-spacing:.07em;">Today's Picks</div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <div style="width:6px; height:6px; border-radius:50%; background:#22c55e;"></div>
+        <span style="font-size:12px; color:#6b7280;">~400 universe · 12 qualified</span>
+      </div>
+    </div>
+
+    <!-- ===== TOP 5 DAILY PICKS ===== -->
+    <div id="top5Section" style="margin-bottom:20px;">
+      <!-- Cron badge -->
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px;">
+        <span style="font-size:11px; color:#4b5563;">📅 อัปเดต 04:00 UTC · 2026-06-03</span>
+        <span class="pill pill-green" style="font-size:10px;">LIVE</span>
+      </div>
+      <div id="top5List" style="display:flex; flex-direction:column; gap:10px;"></div>
+      <!-- Show all -->
+      <button onclick="showAllQualified()" style="width:100%; margin-top:10px; background:transparent; border:1px dashed #2a2d45; border-radius:12px; padding:12px; color:#6b7280; font-size:13px; font-weight:600; cursor:pointer;">
+        ดูทั้งหมด 12 ตัวที่ผ่านเกณฑ์ →
+      </button>
+    </div>
+
+    <!-- Divider -->
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+      <div style="flex:1; height:1px; background:#1e2030;"></div>
+      <span style="font-size:12px; color:#4b5563; font-weight:600;">หรือค้นหาเอง</span>
+      <div style="flex:1; height:1px; background:#1e2030;"></div>
+    </div>
+
+    <!-- Search -->
+    <div style="display:flex; gap:8px; margin-bottom:14px;">
+      <div style="flex:1; position:relative;">
+        <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:16px; opacity:.4;">🔍</span>
+        <input id="symbolInput" type="text" placeholder="Ticker เช่น NVDA" class="dark-input" style="padding-left:38px;" value="NVDA">
+      </div>
+      <button class="btn-sm" style="background:#7c6af7; color:white;" onclick="runAnalysis()">Analyze</button>
+    </div>
+
+    <!-- Analysis Result -->
+    <div id="analysisCard" class="dark-card fade-in" style="padding:16px; margin-bottom:16px;">
+      <!-- Header -->
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:3px;">
+            <span class="ticker" style="font-size:22px; font-weight:800; color:#e8eaf0;">NVDA</span>
+            <span class="pill pill-green">QUALIFIES</span>
+            <span id="capBadgeMain" class="cap-green">🟢 ทุนพอ ~8 หุ้น</span>
+          </div>
+          <span style="font-size:12px; color:#6b7280;">NVIDIA Corporation · NASDAQ</span>
+        </div>
+        <div style="text-align:right; flex-shrink:0;">
+          <div style="font-size:21px; font-weight:800; color:#e8eaf0;">$875.40</div>
+          <div style="font-size:13px; font-weight:600; color:#22c55e;">+2.34 (+0.27%)</div>
+        </div>
+      </div>
+
+      <!-- Sparkline -->
+      <div style="background:#0e0f18; border-radius:10px; padding:8px; margin-bottom:14px;">
+        <svg viewBox="0 0 300 56" style="width:100%; height:56px; display:block;">
+          <defs>
+            <linearGradient id="sg" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#22c55e;stop-opacity:.3"/>
+              <stop offset="100%" style="stop-color:#22c55e;stop-opacity:0"/>
+            </linearGradient>
+          </defs>
+          <path d="M0,45 L20,41 L40,37 L60,39 L80,32 L100,27 L120,23 L140,18 L160,20 L180,15 L200,11 L220,9 L240,5 L260,7 L280,3 L300,1" fill="none" stroke="#22c55e" stroke-width="2"/>
+          <path d="M0,45 L20,41 L40,37 L60,39 L80,32 L100,27 L120,23 L140,18 L160,20 L180,15 L200,11 L220,9 L240,5 L260,7 L280,3 L300,1 L300,56 L0,56 Z" fill="url(#sg)"/>
+        </svg>
+      </div>
+
+      <!-- Composite Score -->
+      <div class="dark-card2" style="padding:12px; margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:12px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.06em;">Composite Score</span>
+          <span style="font-size:20px; font-weight:800; color:#7c6af7;">87.2<span style="font-size:12px; color:#6b7280;">/100</span></span>
+        </div>
+        <!-- Score breakdown bar -->
+        <div class="score-comp" style="margin-bottom:8px;">
+          <div class="score-seg" style="width:37.6%; background:#7c6af7;" title="RS Rank 40%"></div>
+          <div class="score-seg" style="width:25%; background:#3b82f6;" title="SEPA 25%"></div>
+          <div class="score-seg" style="width:24%; background:#22c55e;" title="Proximity 25%"></div>
+          <div class="score-seg" style="width:0.6%; background:#f59e0b;" title="VolumeDry 10%"></div>
+          <div style="flex:1; background:#2a2d45; border-radius:2px;"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">
+          <div style="text-align:center;">
+            <div style="font-size:14px; font-weight:800; color:#7c6af7;">94</div>
+            <div style="font-size:10px; color:#4b5563;">RS Rank<br><span style="color:#6b7280;">×40%</span></div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:14px; font-weight:800; color:#3b82f6;">8/8</div>
+            <div style="font-size:10px; color:#4b5563;">SEPA<br><span style="color:#6b7280;">×25%</span></div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:14px; font-weight:800; color:#22c55e;">96%</div>
+            <div style="font-size:10px; color:#4b5563;">Proximity<br><span style="color:#6b7280;">×25%</span></div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:14px; font-weight:800; color:#f59e0b;">Low</div>
+            <div style="font-size:10px; color:#4b5563;">Vol Dry<br><span style="color:#6b7280;">×10%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEPA -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:13px; font-weight:600; color:#9ca3af;">SEPA Trend Template</span>
+        <span style="font-size:18px; font-weight:800; color:#22c55e;">8<span style="font-size:13px; color:#6b7280;">/8</span></span>
+      </div>
+      <div class="prog-bar" style="margin-bottom:14px;">
+        <div class="prog-fill" style="width:100%; background:linear-gradient(90deg,#22c55e,#10b981);"></div>
+      </div>
+      <div id="sepaList">
+        <div class="sepa-row"><div class="chk-circle chk-pass">✓</div><div style="flex:1;font-size:13px;">ราคาเหนือ MA150 &amp; MA200</div><div style="font-size:11px;color:#6b7280;">875&gt;620/580</div></div>
+        <div class="sepa-row"><div class="chk-circle chk-pass">✓</div><div style="flex:1;font-size:13px;">MA150 &gt; MA200</div><div style="font-size:11px;color:#6b7280;">620&gt;580</div></div>
+        <div class="sepa-row"><div class="chk-circle chk-pass">✓</div><div style="flex:1;font-size:13px;">MA200 ขาขึ้น ≥1 เดือน</div><div style="font-size:11px;color:#6b7280;">580&gt;540</div></div>
+        <div class="sepa-row"><div class="chk-circle chk-pass">✓</div><div style="flex:1;font-size:13px;">MA50 &gt; MA150 &amp; MA200</div><div style="font-size:11px;color:#6b7280;">720&gt;620/580</div></div>
+        <div class="sepa-row"><div class="chk-circle chk-pass">✓</div><div style="flex:1;font-size:13px;">ราคาเหนือ MA50</div><div style="font-size:11px;color:#6b7280;">875&gt;720</div></div>
+        <div class="sepa-row"><div class="chk-circle chk-pass">✓</div><div style="flex:1;font-size:13px;">ห่างจากจุดต่ำ 52w ≥30%</div><div style="font-size:11px;color:#22c55e;">+143%</div></div>
+        <div class="sepa-row"><div class="chk-circle chk-pass">✓</div><div style="flex:1;font-size:13px;">ใกล้จุดสูง 52w ≤25%</div><div style="font-size:11px;color:#22c55e;">-3.4%</div></div>
+        <div class="sepa-row"><div class="chk-circle chk-pass">✓</div><div style="flex:1;font-size:13px;">RS Rating ≥70</div><div style="font-size:11px;font-weight:700;color:#22c55e;">RS 94</div></div>
+      </div>
+
+      <!-- ATR Stop -->
+      <div style="background:#0e0f18; border-radius:10px; padding:10px 12px; margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:12px; color:#6b7280;">ATR(14) Stop Suggestion</div>
+        <div style="font-size:13px; font-weight:700; color:#7c6af7;">$813.90 <span style="color:#4b5563; font-weight:400;">(2.5×ATR $24.6)</span></div>
+      </div>
+    </div>
+
+    <!-- AI Briefing -->
+    <div class="dark-card" style="padding:16px; margin-bottom:16px; border-left:3px solid #7c6af7;">
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+        <span style="font-size:13px;">✨</span>
+        <span style="font-size:11px; font-weight:700; color:#7c6af7; text-transform:uppercase; letter-spacing:.08em;">AI Briefing · Gemini</span>
+      </div>
+      <p style="font-size:14px; line-height:1.65; margin:0; color:#c8cadc;">NVDA ผ่าน SEPA 8/8 · RS 94 อยู่ในโซน momentum แรง proximity 96% บ่งชี้ใกล้ 52w high ทำ new high ได้ volume แห้งลง 5 วันล่าสุด (VCP pattern) stop แนะนำ $813 (2.5×ATR) · ระวัง earnings 28 พ.ค.</p>
+      <div style="margin-top:8px; font-size:11px; color:#4b5563;">ตัวเลขมาจาก rule engine เท่านั้น — AI สรุปไม่สั่งซื้อ</div>
+    </div>
+
+    <!-- Quick actions -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+      <button class="btn-sm" style="background:#1e2030; color:#7c6af7; border:1px solid #2a2d45; padding:12px;" onclick="switchTab('risk')">🎯 คำนวณ Position</button>
+      <button class="btn-sm" style="background:#1e2030; color:#22c55e; border:1px solid #2a2d45; padding:12px;" onclick="openSheet('tradeSheet')">➕ บันทึก Trade</button>
+    </div>
+
+    <!-- Watchlist -->
+    <div style="font-size:12px; font-weight:700; color:#6b7280; margin-bottom:10px; text-transform:uppercase; letter-spacing:.07em;">Watchlist (30 ตัว)</div>
+    <div id="watchlist" style="display:flex; flex-direction:column; gap:8px;"></div>
+  </div>
+
+  <!-- ===== PAGE: RISK ===== -->
+  <div id="page-risk" class="tab-content page" style="padding:16px;">
+    <div style="font-size:20px; font-weight:800; color:#e8eaf0; margin-bottom:2px;">1% Risk Calculator</div>
+    <div style="font-size:13px; color:#6b7280; margin-bottom:18px;">Position sizing · Capital-aware</div>
+
+    <!-- Portfolio Heat -->
+    <div class="dark-card" style="padding:14px 16px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div style="font-size:12px; color:#6b7280; margin-bottom:2px;">Portfolio Heat</div>
+        <div style="font-size:22px; font-weight:800; color:#f59e0b;">3.2% <span style="font-size:13px; font-weight:400; color:#6b7280;">/ 6% max</span></div>
+      </div>
+      <div style="width:90px;">
+        <div class="prog-bar" style="margin-bottom:4px;">
+          <div class="prog-fill" style="width:53%; background:linear-gradient(90deg,#22c55e,#f59e0b);"></div>
+        </div>
+        <div style="font-size:11px; color:#6b7280; text-align:right;">2 open positions</div>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <div class="dark-card" style="padding:16px; margin-bottom:14px;">
+      <div style="display:grid; gap:14px;">
+        <!-- Account size -->
+        <div>
+          <div class="label-sm">Account Size ($)</div>
+          <input type="number" id="accountSize" class="dark-input" value="550" oninput="calcRisk()">
+          <div style="font-size:11px; color:#6b7280; margin-top:4px;">≈ 20,000 THB</div>
+        </div>
+
+        <!-- Risk % slider -->
+        <div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span class="label-sm" style="margin:0;">Risk Per Trade</span>
+            <span id="riskPctLabel" style="font-size:12px; font-weight:700; color:#7c6af7;">1.00%</span>
+          </div>
+          <input type="range" id="riskPct" min="0.25" max="3" step="0.25" value="1" oninput="calcRisk()">
+          <div style="display:flex; justify-content:space-between; font-size:11px; color:#4b5563; margin-top:4px;">
+            <span>0.25%</span><span>3%</span>
+          </div>
+        </div>
+
+        <!-- Entry / Stop -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div>
+            <div class="label-sm">Entry Price ($)</div>
+            <input type="number" id="entryPrice" class="dark-input" value="875.40" step="0.01" oninput="calcRisk()">
+          </div>
+          <div>
+            <div class="label-sm">Stop Price ($)</div>
+            <input type="number" id="stopPrice" class="dark-input" value="813.00" step="0.01" oninput="calcRisk()">
+          </div>
+        </div>
+
+        <!-- ATR hint -->
+        <div style="background:#0e0f18; border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:#6b7280;">ATR(14) suggestion</span>
+          <span style="font-size:12px; font-weight:600; color:#7c6af7;">Stop $813.90 (2.5×ATR)</span>
+        </div>
+
+        <!-- Fractional toggle -->
+        <div style="display:flex; align-items:center; justify-content:space-between; background:#0e0f18; border-radius:10px; padding:12px 14px;">
+          <div>
+            <div style="font-size:14px; color:#e8eaf0; font-weight:600;">Fractional Shares</div>
+            <div style="font-size:11px; color:#6b7280; margin-top:2px;">IBKR / Alpaca รองรับ</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="fractionalToggle" onchange="calcRisk()">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div id="riskResult" class="dark-card" style="padding:16px; margin-bottom:14px;">
+      <div style="font-size:12px; font-weight:700; color:#6b7280; margin-bottom:12px; text-transform:uppercase; letter-spacing:.07em;">Position Size</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+        <div style="background:#0e0f18; border-radius:12px; padding:14px; text-align:center;">
+          <div id="sharesResult" style="font-size:28px; font-weight:800; color:#7c6af7;">0</div>
+          <div style="font-size:12px; color:#6b7280; margin-top:2px;">Shares</div>
+        </div>
+        <div style="background:#0e0f18; border-radius:12px; padding:14px; text-align:center;">
+          <div id="posValueResult" style="font-size:20px; font-weight:800; color:#e8eaf0;">—</div>
+          <div style="font-size:12px; color:#6b7280; margin-top:2px;">Position Value</div>
+        </div>
+        <div style="background:#0e0f18; border-radius:12px; padding:14px; text-align:center;">
+          <div id="posPctResult" style="font-size:20px; font-weight:800; color:#f59e0b;">—</div>
+          <div style="font-size:12px; color:#6b7280; margin-top:2px;">% of Portfolio</div>
+        </div>
+        <div style="background:#0e0f18; border-radius:12px; padding:14px; text-align:center;">
+          <div id="riskAmtResult" style="font-size:20px; font-weight:800; color:#22c55e;">—</div>
+          <div style="font-size:12px; color:#6b7280; margin-top:2px;">Max Risk ($)</div>
+        </div>
+      </div>
+      <!-- Dynamic alerts -->
+      <div id="riskAlerts"></div>
+    </div>
+
+    <!-- Capital-Aware Section -->
+    <div class="dark-card" style="padding:16px; margin-bottom:14px;">
+      <div style="font-size:12px; font-weight:700; color:#6b7280; margin-bottom:12px; text-transform:uppercase; letter-spacing:.07em;">Capital Suitability</div>
+      <div id="capSuitResult" class="info-box" style="margin-bottom:14px;">
+        <div style="font-size:13px; color:#7c6af7;">กำลังคำนวณ...</div>
+      </div>
+      <!-- Capital Growth Guide -->
+      <div style="font-size:12px; font-weight:700; color:#6b7280; margin-bottom:8px; text-transform:uppercase; letter-spacing:.07em;">Capital Growth Guide</div>
+      <div style="font-size:11px; color:#6b7280; margin-bottom:8px;">ทุนมากขึ้น → เปิด universe กว้างขึ้น</div>
+      <div id="capGuide">
+        <div class="cap-row">
+          <div style="width:72px; font-size:12px; font-weight:700; color:#9ca3af;">$500</div>
+          <div style="flex:1;">
+            <div style="font-size:12px; color:#e8eaf0;">หุ้น ≤ $15 · max 1-2 pos</div>
+            <div style="font-size:11px; color:#6b7280;">Fractional recommended</div>
+          </div>
+          <span id="guide500" class="pill pill-gray">—</span>
+        </div>
+        <div class="cap-row">
+          <div style="width:72px; font-size:12px; font-weight:700; color:#9ca3af;">$2,000</div>
+          <div style="flex:1;">
+            <div style="font-size:12px; color:#e8eaf0;">หุ้น ≤ $50 · max 2-3 pos</div>
+          </div>
+          <span id="guide2k" class="pill pill-gray">—</span>
+        </div>
+        <div class="cap-row">
+          <div style="width:72px; font-size:12px; font-weight:700; color:#9ca3af;">$5,000</div>
+          <div style="flex:1;">
+            <div style="font-size:12px; color:#e8eaf0;">หุ้น ≤ $100 · max 3-4 pos</div>
+          </div>
+          <span id="guide5k" class="pill pill-gray">—</span>
+        </div>
+        <div class="cap-row">
+          <div style="width:72px; font-size:12px; font-weight:700; color:#9ca3af;">$10,000+</div>
+          <div style="flex:1;">
+            <div style="font-size:12px; color:#e8eaf0;">เต็มระบบ SEPA · ไม่จำกัด</div>
+          </div>
+          <span id="guide10k" class="pill pill-gray">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pre-trade Checklist -->
+    <div class="dark-card" style="padding:16px;">
+      <div style="font-size:12px; font-weight:700; color:#6b7280; margin-bottom:12px; text-transform:uppercase; letter-spacing:.07em;">Pre-Trade Checklist</div>
+      <label style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #1e2030; cursor:pointer;">
+        <input type="checkbox" id="chk1" onchange="updateChecklist()" style="width:18px;height:18px;accent-color:#7c6af7;" checked>
+        <span style="font-size:14px; color:#e8eaf0;">Market Regime ผ่าน (Bull)</span>
+        <span class="pill pill-green" style="margin-left:auto;">✓ Auto</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #1e2030; cursor:pointer;">
+        <input type="checkbox" id="chk2" onchange="updateChecklist()" style="width:18px;height:18px;accent-color:#7c6af7;">
+        <span style="font-size:14px; color:#e8eaf0;">SEPA ผ่าน ≥ 7/8</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #1e2030; cursor:pointer;">
+        <input type="checkbox" id="chk3" onchange="updateChecklist()" style="width:18px;height:18px;accent-color:#7c6af7;">
+        <span style="font-size:14px; color:#e8eaf0;">Heat หลังเพิ่ม position ≤ 6%</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #1e2030; cursor:pointer;">
+        <input type="checkbox" id="chk4" onchange="updateChecklist()" style="width:18px;height:18px;accent-color:#7c6af7;">
+        <span style="font-size:14px; color:#e8eaf0;">Earnings ไม่ใกล้กว่า 5 วัน</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:10px; padding:10px 0; cursor:pointer;">
+        <input type="checkbox" id="chk5" onchange="updateChecklist()" style="width:18px;height:18px;accent-color:#7c6af7;">
+        <span style="font-size:14px; color:#e8eaf0;">Stop กำหนดแล้ว · Capital สีเขียว</span>
+      </label>
+      <button id="goTradeBtn" class="btn-primary" style="background:#2a2d45; color:#6b7280; margin-top:16px;" disabled onclick="openSheet('tradeSheet')">
+        บันทึก Trade (ตอบครบก่อน)
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== PAGE: JOURNAL ===== -->
+  <div id="page-journal" class="tab-content page" style="padding:16px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+      <div>
+        <div style="font-size:20px; font-weight:800; color:#e8eaf0;">Trade Journal</div>
+        <div style="font-size:13px; color:#6b7280; margin-top:1px;">Backup: <span style="color:#22c55e;">1 วันก่อน</span></div>
+      </div>
+      <button class="btn-sm" style="background:#7c6af7; color:white;" onclick="openSheet('tradeSheet')">+ New</button>
+    </div>
+
+    <!-- Stats -->
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px;">
+      <div class="dark-card" style="padding:12px; text-align:center;">
+        <div style="font-size:11px; color:#6b7280; margin-bottom:3px;">Win Rate</div>
+        <div style="font-size:22px; font-weight:800; color:#22c55e;">64%</div>
+      </div>
+      <div class="dark-card" style="padding:12px; text-align:center;">
+        <div style="font-size:11px; color:#6b7280; margin-bottom:3px;">Expectancy</div>
+        <div style="font-size:22px; font-weight:800; color:#7c6af7;">+0.72R</div>
+      </div>
+      <div class="dark-card" style="padding:12px; text-align:center;">
+        <div style="font-size:11px; color:#6b7280; margin-bottom:3px;">Net P&amp;L</div>
+        <div style="font-size:22px; font-weight:800; color:#22c55e;">+$550</div>
+      </div>
+    </div>
+
+    <!-- Expectancy Note -->
+    <div class="info-box" style="margin-bottom:14px;">
+      <div style="font-size:13px; font-weight:700; color:#7c6af7; margin-bottom:4px;">Edge Check ✓</div>
+      <div style="font-size:12px; color:#9ca3af;">Expectancy +0.72R &gt; 0 → กลยุทธ์มี edge เชิงสถิติ · avgWin $183 · avgLoss $86 · 14 trades</div>
+    </div>
+
+    <!-- Filter -->
+    <div class="seg" style="margin-bottom:14px;">
+      <button class="active" onclick="filterJournal('all',this)">All</button>
+      <button onclick="filterJournal('open',this)">Open</button>
+      <button onclick="filterJournal('win',this)">Win</button>
+      <button onclick="filterJournal('loss',this)">Loss</button>
+    </div>
+
+    <div id="journalList" style="display:flex; flex-direction:column; gap:10px;"></div>
+
+    <!-- Export -->
+    <div style="margin-top:20px; display:grid; gap:8px;">
+      <button class="btn-primary" style="background:#1e2030; color:#7c6af7; border:1px solid #2a2d45;" onclick="exportJournal()">
+        📤 Export JSON → Google Drive
+      </button>
+      <button class="btn-primary" style="background:#1e2030; color:#6b7280; border:1px solid #2a2d45;">
+        📥 Import from JSON
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== PAGE: VALUE (Module 2) ===== -->
+  <div id="page-value" class="tab-content page light-bg" style="padding:16px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+      <div style="width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#3b7af8,#06b6d4); display:flex; align-items:center; justify-content:center; font-size:14px;">📊</div>
+      <div>
+        <div style="font-size:17px; font-weight:800; color:#1a1d2e;">Value Investor</div>
+        <div style="font-size:12px; color:#6b7280;">Fundamentals · Long-term</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <div style="flex:1; position:relative;">
+        <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:16px; opacity:.4;">🔍</span>
+        <input type="text" placeholder="Ticker เช่น AAPL" class="light-input" style="padding-left:38px;" value="AAPL">
+      </div>
+      <button class="btn-sm" style="background:#3b7af8; color:white;" onclick="showToast('Analyzing AAPL...')">Analyze</button>
+    </div>
+
+    <div class="light-card" style="padding:16px; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">
+            <span class="ticker" style="font-size:22px; font-weight:800; color:#1a1d2e;">AAPL</span>
+            <span class="pill pill-blue">QUALITY</span>
+          </div>
+          <span style="font-size:12px; color:#6b7280;">Apple Inc. · NASDAQ</span>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:21px; font-weight:800; color:#1a1d2e;">$189.84</div>
+          <div style="font-size:13px; font-weight:600; color:#22c55e;">+1.24 (+0.66%)</div>
+        </div>
+      </div>
+
+      <div class="seg-l" style="margin-bottom:14px;">
+        <button class="active" onclick="viTab('piotroski',this)">Piotroski</button>
+        <button onclick="viTab('altman',this)">Altman Z</button>
+        <button onclick="viTab('dcf',this)">DCF</button>
+      </div>
+
+      <!-- Piotroski -->
+      <div id="vi-piotroski">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <div>
+            <div style="font-size:13px; color:#6b7280; margin-bottom:2px;">Piotroski F-Score</div>
+            <div style="display:flex; align-items:baseline; gap:4px;">
+              <span style="font-size:36px; font-weight:800; color:#3b7af8;">8</span>
+              <span style="font-size:16px; color:#9ca3af;">/9</span>
+              <span class="pill pill-blue" style="margin-left:6px;">Strong ≥7</span>
+            </div>
+          </div>
+        </div>
+        <div id="pioDots" style="display:flex; gap:5px; margin-bottom:14px;"></div>
+        <div style="font-size:11px; font-weight:700; color:#9ca3af; margin-bottom:6px; text-transform:uppercase; letter-spacing:.06em;">Profitability</div>
+        <div style="margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid #f2f4f8; font-size:13px; color:#1a1d2e;"><span>ROA &gt; 0</span><span style="color:#22c55e; font-weight:600;">✓ 28.3%</span></div>
+          <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid #f2f4f8; font-size:13px; color:#1a1d2e;"><span>OCF &gt; 0</span><span style="color:#22c55e; font-weight:600;">✓ $113B</span></div>
+          <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid #f2f4f8; font-size:13px; color:#1a1d2e;"><span>ROA เพิ่มขึ้น YoY</span><span style="color:#22c55e; font-weight:600;">✓ +2.1pp</span></div>
+          <div style="display:flex; justify-content:space-between; padding:7px 0; font-size:13px; color:#1a1d2e;"><span>OCF &gt; Net Income</span><span style="color:#22c55e; font-weight:600;">✓</span></div>
+        </div>
+        <div style="font-size:11px; font-weight:700; color:#9ca3af; margin-bottom:6px; text-transform:uppercase; letter-spacing:.06em;">Leverage / Liquidity</div>
+        <div style="margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid #f2f4f8; font-size:13px; color:#1a1d2e;"><span>LT Debt ลดลง</span><span style="color:#22c55e; font-weight:600;">✓</span></div>
+          <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid #f2f4f8; font-size:13px; color:#1a1d2e;"><span>Current Ratio เพิ่ม</span><span style="color:#22c55e; font-weight:600;">✓</span></div>
+          <div style="display:flex; justify-content:space-between; padding:7px 0; font-size:13px; color:#1a1d2e;"><span>ไม่ออกหุ้นใหม่</span><span style="color:#ef4444; font-weight:600;">✗ Diluted</span></div>
+        </div>
+        <div style="font-size:11px; font-weight:700; color:#9ca3af; margin-bottom:6px; text-transform:uppercase; letter-spacing:.06em;">Efficiency</div>
+        <div>
+          <div style="display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid #f2f4f8; font-size:13px; color:#1a1d2e;"><span>Gross Margin เพิ่ม</span><span style="color:#22c55e; font-weight:600;">✓ 45.9%</span></div>
+          <div style="display:flex; justify-content:space-between; padding:7px 0; font-size:13px; color:#1a1d2e;"><span>Asset Turnover เพิ่ม</span><span style="color:#22c55e; font-weight:600;">✓ 1.12x</span></div>
+        </div>
+      </div>
+
+      <!-- Altman -->
+      <div id="vi-altman" style="display:none;">
+        <div style="text-align:center; padding:14px 0;">
+          <div style="font-size:48px; font-weight:800; color:#3b7af8; margin-bottom:2px;">7.84</div>
+          <div style="font-size:14px; color:#6b7280; margin-bottom:12px;">Altman Z-Score</div>
+          <span class="pill pill-blue" style="font-size:13px; padding:6px 18px;">SAFE ZONE (&gt; 2.99)</span>
+        </div>
+        <div style="position:relative; margin:18px 0 6px;">
+          <div style="height:8px; border-radius:4px; background:linear-gradient(90deg,#ef4444 0%,#f59e0b 24%,#22c55e 40%,#22c55e 100%);"></div>
+          <div style="position:absolute; top:-4px; left:78.4%; width:16px; height:16px; border-radius:50%; background:white; border:3px solid #3b7af8; transform:translateX(-50%); box-shadow:0 2px 6px rgba(59,130,246,.4);"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:#9ca3af; margin-bottom:14px;"><span>&lt;1.81 Danger</span><span>Grey</span><span>&gt;2.99 Safe</span></div>
+        <div style="display:grid; gap:6px;">
+          <div style="display:flex; justify-content:space-between; padding:8px 10px; background:#f2f4f8; border-radius:8px; font-size:13px; color:#1a1d2e;"><span>Working Capital / TA</span><span style="font-weight:700;">0.142</span></div>
+          <div style="display:flex; justify-content:space-between; padding:8px 10px; background:#f2f4f8; border-radius:8px; font-size:13px; color:#1a1d2e;"><span>Retained Earnings / TA</span><span style="font-weight:700;">0.811</span></div>
+          <div style="display:flex; justify-content:space-between; padding:8px 10px; background:#f2f4f8; border-radius:8px; font-size:13px; color:#1a1d2e;"><span>EBIT / TA</span><span style="font-weight:700;">0.319</span></div>
+          <div style="display:flex; justify-content:space-between; padding:8px 10px; background:#f2f4f8; border-radius:8px; font-size:13px; color:#1a1d2e;"><span>MktCap / Total Liab</span><span style="font-weight:700;">4.52x</span></div>
+        </div>
+      </div>
+
+      <!-- DCF -->
+      <div id="vi-dcf" style="display:none;">
+        <div style="font-size:13px; color:#6b7280; margin-bottom:12px;">3-Scenario DCF · Bear / Base / Bull</div>
+        <div style="display:grid; gap:8px; margin-bottom:14px;">
+          <div style="background:#fff3f3; border:1px solid #ffd5d5; border-radius:12px; padding:14px; display:flex; justify-content:space-between; align-items:center;">
+            <div><div style="font-size:11px; color:#ef4444; font-weight:700; margin-bottom:3px;">BEAR</div><div style="font-size:11px; color:#9ca3af;">g=4%, WACC=10%</div></div>
+            <div style="font-size:26px; font-weight:800; color:#ef4444;">$138</div>
+          </div>
+          <div style="background:#f0f7ff; border:1px solid #c0d8ff; border-radius:12px; padding:14px; display:flex; justify-content:space-between; align-items:center;">
+            <div><div style="font-size:11px; color:#3b7af8; font-weight:700; margin-bottom:3px;">BASE</div><div style="font-size:11px; color:#9ca3af;">g=7%, WACC=9%</div></div>
+            <div style="font-size:26px; font-weight:800; color:#3b7af8;">$182</div>
+          </div>
+          <div style="background:#f0fff5; border:1px solid #a7f3d0; border-radius:12px; padding:14px; display:flex; justify-content:space-between; align-items:center;">
+            <div><div style="font-size:11px; color:#22c55e; font-weight:700; margin-bottom:3px;">BULL</div><div style="font-size:11px; color:#9ca3af;">g=10%, WACC=8%</div></div>
+            <div style="font-size:26px; font-weight:800; color:#22c55e;">$241</div>
+          </div>
+        </div>
+        <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:12px; padding:14px; text-align:center;">
+          <div style="font-size:11px; color:#f59e0b; font-weight:700; margin-bottom:3px;">Margin of Safety (Base)</div>
+          <div style="font-size:30px; font-weight:800; color:#f59e0b;">-4.3%</div>
+          <div style="font-size:12px; color:#9ca3af;">$189.84 vs IV $182 — รอ MoS ≥20% (~$146)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VI Briefing -->
+    <div class="light-card" style="padding:16px; border-left:3px solid #3b7af8;">
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+        <span>✨</span>
+        <span style="font-size:11px; font-weight:700; color:#3b7af8; text-transform:uppercase; letter-spacing:.08em;">AI Briefing · Gemini</span>
+      </div>
+      <p style="font-size:14px; line-height:1.65; margin:0; color:#374151;">AAPL คุณภาพงบสูง F-Score 8/9 · Altman Z 7.84 แข็งแกร่งมาก แต่ DCF base $182 ต่ำกว่าราคาตลาดเล็กน้อย MoS -4.3% — แนะนำรอ pullback เข้าที่ ~$146 (MoS 20%) หรือปรับ thesis growth &gt;7%</p>
+    </div>
+  </div>
+
+  <!-- ===== PAGE: SETTINGS ===== -->
+  <div id="page-settings" class="tab-content page" style="padding:16px;">
+    <div style="font-size:20px; font-weight:800; color:#e8eaf0; margin-bottom:2px;">Settings</div>
+    <div style="font-size:13px; color:#6b7280; margin-bottom:20px;">Account & Preferences</div>
+
+    <div class="dark-card" style="padding:0; margin-bottom:12px; overflow:hidden;">
+      <div style="padding:14px 16px; border-bottom:1px solid #1e2030;">
+        <div style="font-size:11px; color:#4b5563; margin-bottom:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;">Account</div>
+        <div style="display:flex; justify-content:space-between;"><span style="font-size:14px; color:#e8eaf0;">Account Size</span><span style="font-size:14px; font-weight:700; color:#7c6af7;">$550</span></div>
+      </div>
+      <div style="padding:14px 16px; border-bottom:1px solid #1e2030;">
+        <div style="display:flex; justify-content:space-between;"><span style="font-size:14px; color:#e8eaf0;">Max Risk Per Trade</span><span style="font-size:14px; font-weight:700; color:#7c6af7;">1%</span></div>
+      </div>
+      <div style="padding:14px 16px; border-bottom:1px solid #1e2030;">
+        <div style="display:flex; justify-content:space-between;"><span style="font-size:14px; color:#e8eaf0;">Max Portfolio Heat</span><span style="font-size:14px; font-weight:700; color:#7c6af7;">6%</span></div>
+      </div>
+      <div style="padding:14px 16px; display:flex; align-items:center; justify-content:space-between;">
+        <div><div style="font-size:14px; color:#e8eaf0;">Fractional Shares</div><div style="font-size:11px; color:#6b7280;">IBKR / Alpaca</div></div>
+        <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="dark-card" style="padding:0; margin-bottom:12px; overflow:hidden;">
+      <div style="padding:14px 16px; border-bottom:1px solid #1e2030;">
+        <div style="font-size:11px; color:#4b5563; margin-bottom:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;">Universe</div>
+        <div style="display:flex; justify-content:space-between;"><span style="font-size:14px; color:#e8eaf0;">S&amp;P 500 + Nasdaq 100</span><span class="pill pill-green">~400 symbols</span></div>
+      </div>
+      <div style="padding:14px 16px; border-bottom:1px solid #1e2030;">
+        <div style="display:flex; justify-content:space-between;"><span style="font-size:14px; color:#e8eaf0;">API Quota ใช้ไปวันนี้</span><span style="font-size:14px; font-weight:700; color:#22c55e;">187 / 250</span></div>
+      </div>
+      <div style="padding:14px 16px;">
+        <div style="display:flex; justify-content:space-between;"><span style="font-size:14px; color:#e8eaf0;">Cache อัปเดตล่าสุด</span><span style="font-size:14px; color:#6b7280;">04:12 UTC</span></div>
+      </div>
+    </div>
+
+    <div class="dark-card" style="padding:0; margin-bottom:12px; overflow:hidden;">
+      <div style="padding:14px 16px; border-bottom:1px solid #1e2030;">
+        <div style="font-size:11px; color:#4b5563; margin-bottom:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;">Backup</div>
+        <div style="display:flex; justify-content:space-between;"><span style="font-size:14px; color:#e8eaf0;">Last Backup</span><span style="color:#22c55e; font-size:14px;">1 วันก่อน</span></div>
+      </div>
+      <div style="padding:14px 16px; border-bottom:1px solid #1e2030;">
+        <button class="btn-sm" style="background:#1e2030; color:#7c6af7; border:1px solid #2a2d45; width:100%; text-align:left;" onclick="exportJournal()">📤 Export JSON</button>
+      </div>
+      <div style="padding:14px 16px;">
+        <button class="btn-sm" style="background:#1e2030; color:#6b7280; border:1px solid #2a2d45; width:100%; text-align:left;">📥 Import JSON</button>
+      </div>
+    </div>
+
+    <div class="dark-card" style="padding:14px 16px;">
+      <div style="font-size:11px; color:#4b5563; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px;">Disclaimer</div>
+      <p style="font-size:13px; color:#6b7280; line-height:1.6; margin:0;">แอปนี้เป็นเครื่องมือช่วยตัดสินใจส่วนตัว ไม่ใช่คำแนะนำการลงทุน ผู้ใช้รับผลการตัดสินใจเองทุกครั้ง</p>
+    </div>
+  </div>
+
+</div><!-- /mainContent -->
+
+<!-- ========== BOTTOM NAV ========== -->
+<div class="bottom-nav">
+  <div id="navBar" style="background:#0a0a0f; border-top:1px solid #1e2030; display:grid; grid-template-columns:repeat(4,1fr); padding-bottom:env(safe-area-inset-bottom);">
+    <button class="nav-btn" id="nav-scan" onclick="switchTab('scan')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;background:transparent;border:none;cursor:pointer;gap:2px;">
+      <span style="font-size:22px;">🔭</span>
+      <span id="lbl-scan" style="font-size:11px; font-weight:600; color:#7c6af7;">Scan</span>
+    </button>
+    <button class="nav-btn" id="nav-risk" onclick="switchTab('risk')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;background:transparent;border:none;cursor:pointer;gap:2px;">
+      <span style="font-size:22px;">🎯</span>
+      <span id="lbl-risk" style="font-size:11px; font-weight:600; color:#6b7280;">Risk</span>
+    </button>
+    <button class="nav-btn" id="nav-journal" onclick="switchTab('journal')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;background:transparent;border:none;cursor:pointer;gap:2px;">
+      <span style="font-size:22px;">📒</span>
+      <span id="lbl-journal" style="font-size:11px; font-weight:600; color:#6b7280;">Journal</span>
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="switchTab('settings')" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;background:transparent;border:none;cursor:pointer;gap:2px;">
+      <span style="font-size:22px;">⚙️</span>
+      <span id="lbl-settings" style="font-size:11px; font-weight:600; color:#6b7280;">Settings</span>
+    </button>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<!-- ========== SHEET: NEW TRADE ========== -->
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet()"></div>
+<div class="sheet" id="tradeSheet" style="background:#12131a; padding-bottom:calc(20px + env(safe-area-inset-bottom));">
+  <div class="sheet-handle"></div>
+  <div style="padding:0 16px 20px;">
+    <div style="font-size:18px; font-weight:800; color:#e8eaf0; margin-bottom:16px;">New Trade</div>
+    <div style="display:grid; gap:12px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div><div class="label-sm">Symbol</div>
+          <input type="text" id="tradeSymbol" class="dark-input" placeholder="NVDA" value="NVDA" style="text-transform:uppercase;">
+        </div>
+        <div><div class="label-sm">Direction</div>
+          <div class="seg">
+            <button class="active" id="typeLong" onclick="setTradeType('long')">Long</button>
+            <button id="typeShort" onclick="setTradeType('short')">Short</button>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div><div class="label-sm">Entry ($)</div>
+          <input type="number" id="tradeEntry" class="dark-input" value="875.40" step="0.01">
+        </div>
+        <div><div class="label-sm">Shares</div>
+          <input type="number" id="tradeShares" class="dark-input" value="8">
+        </div>
+      </div>
+      <div><div class="label-sm">Stop Price ($)</div>
+        <input type="number" id="tradeStop" class="dark-input" value="813.00" step="0.01">
+      </div>
+      <div><div class="label-sm">Setup / เหตุผลเข้า</div>
+        <textarea id="tradeReason" class="dark-input" rows="2" style="resize:none; font-family:inherit;" placeholder="SEPA 8/8 · RS 94 · VCP">SEPA 8/8 · RS 94 · VCP breakout</textarea>
+      </div>
+      <button class="btn-primary" style="background:#7c6af7; color:white;" onclick="saveTrade()">Save Trade</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TOAST ========== -->
+<div id="toast" style="position:fixed; top:max(env(safe-area-inset-top),60px); left:50%; transform:translateX(-50%) translateY(-80px); background:#1e2030; color:white; padding:10px 20px; border-radius:12px; font-size:14px; font-weight:600; z-index:500; transition:transform .3s cubic-bezier(.32,.72,0,1); white-space:nowrap; border:1px solid #2a2d45; box-shadow:0 8px 24px rgba(0,0,0,.4);"></div>
+
+<script>
+// ============================================================
+// MOCK DATA
+// ============================================================
+const TOP5 = [
+  { rank:1, symbol:'AXON', name:'Axon Enterprise',  price:324.50, chg:+1.82, score:91.4, sepa:'8/8', rs:97, prox:0.97, volDry:0.82, capSuit:'green',  minCap:3200, briefing:'RS 97 ท็อปตลาด · proximity 97% · volume แห้ง 5 วัน VCP คลาสสิก' },
+  { rank:2, symbol:'NVDA', name:'NVIDIA Corp',       price:875.40, chg:+0.27, score:87.2, sepa:'8/8', rs:94, prox:0.96, volDry:0.40, capSuit:'red',    minCap:6250, briefing:'RS 94 แรง · SEPA 8/8 · ต้องทุน $6,250+ สำหรับ min 5 หุ้น' },
+  { rank:3, symbol:'META', name:'Meta Platforms',    price:512.80, chg:+1.10, score:82.6, sepa:'8/8', rs:88, prox:0.91, volDry:0.55, capSuit:'red',    minCap:4100, briefing:'RS 88 · SEPA 8/8 · base building 6 สัปดาห์' },
+  { rank:4, symbol:'CELH', name:'Celsius Holdings',  price:28.40,  chg:+2.31, score:76.1, sepa:'7/8', rs:81, prox:0.84, volDry:0.71, capSuit:'green',  minCap:480,  briefing:'ราคาเหมาะทุนเล็ก · RS 81 · cup handle ชัดเจน' },
+  { rank:5, symbol:'SMST', name:'SoFi Technologies', price:11.20,  chg:+0.90, score:71.3, sepa:'7/8', rs:74, prox:0.79, volDry:0.62, capSuit:'green',  minCap:320,  briefing:'ราคาต่ำ &lt;$15 · เหมาะทุน $500+ · RS 74 ขาขึ้น' },
+];
+
+const WATCHLIST = [
+  { symbol:'AXON', name:'Axon Enterprise',  price:324.50, chg:+1.82, sepa:'8/8', rs:97, capSuit:'green'  },
+  { symbol:'NVDA', name:'NVIDIA Corp',       price:875.40, chg:+0.27, sepa:'8/8', rs:94, capSuit:'red'    },
+  { symbol:'META', name:'Meta Platforms',    price:512.80, chg:+1.10, sepa:'8/8', rs:88, capSuit:'red'    },
+  { symbol:'CELH', name:'Celsius Holdings',  price:28.40,  chg:+2.31, sepa:'7/8', rs:81, capSuit:'green'  },
+];
+
+const JOURNAL = [
+  { id:1, symbol:'NVDA', type:'open', entry:875.40, shares:8,  stop:813.00, reason:'SEPA 8/8 · RS 94 · VCP', date:'2026-06-02', pnl:null, exit:null },
+  { id:2, symbol:'META', type:'win',  entry:468.20, shares:5,  stop:441.00, reason:'SEPA 8/8 · RS 88 · tight box', date:'2026-05-28', pnl:223, exit:512.80 },
+  { id:3, symbol:'SMCI', type:'loss', entry:42.80,  shares:20, stop:39.00,  reason:'Volume breakout · RS 76', date:'2026-05-22', pnl:-86, exit:38.50 },
+  { id:4, symbol:'CELH', type:'win',  entry:28.40,  shares:30, stop:25.90,  reason:'SEPA 7/8 · cup handle', date:'2026-05-15', pnl:216, exit:35.60 },
+  { id:5, symbol:'APP',  type:'win',  entry:98.50,  shares:10, stop:91.00,  reason:'Momentum breakout · RS 92', date:'2026-05-10', pnl:197, exit:118.20 },
+];
+
+// ============================================================
+// MODULE / TAB SWITCH
+// ============================================================
+let currentModule = 'dark';
+let currentTab = 'scan';
+
+function switchModule(mod) {
+  currentModule = mod;
+  const isDark = mod === 'dark';
+  const header = document.getElementById('appHeader');
+  const navBar = document.getElementById('navBar');
+  const modToggle = document.getElementById('modToggle');
+  const mod1 = document.getElementById('mod1Btn');
+  const mod2 = document.getElementById('mod2Btn');
+
+  if (isDark) {
+    document.getElementById('app').style.background = '#0a0a0f';
+    header.style.cssText = 'padding:0 16px 12px; position:sticky; top:max(env(safe-area-inset-top),44px); z-index:50; background:#0a0a0f; border-bottom:1px solid #1e2030;';
+    navBar.style.background = '#0a0a0f';
+    navBar.style.borderTopColor = '#1e2030';
+    modToggle.className = 'toggle-wrap';
+    mod1.className = 'tog-opt active';
+    mod2.className = 'tog-opt';
+    switchTab('scan');
+  } else {
+    document.getElementById('app').style.background = '#f2f4f8';
+    header.style.cssText = 'padding:0 16px 12px; position:sticky; top:max(env(safe-area-inset-top),44px); z-index:50; background:#f2f4f8; border-bottom:1px solid #e8eaef;';
+    navBar.style.background = '#fff';
+    navBar.style.borderTopColor = '#e8eaef';
+    modToggle.className = 'toggle-wrap-l';
+    mod1.className = 'tog-opt-l';
+    mod2.className = 'tog-opt-l active';
+    switchTab('value');
+  }
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  const accent = currentModule === 'dark' ? '#7c6af7' : '#3b7af8';
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  ['scan','risk','journal','settings','value'].forEach(t => {
+    const lbl = document.getElementById('lbl-' + t);
+    if (lbl) lbl.style.color = '#6b7280';
+  });
+  const page = document.getElementById('page-' + tab);
+  if (page) { page.classList.add('active'); }
+  const lbl = document.getElementById('lbl-' + tab);
+  if (lbl) lbl.style.color = accent;
+}
+
+// ============================================================
+// TOP 5 RENDER
+// ============================================================
+function renderTop5() {
+  const container = document.getElementById('top5List');
+  container.innerHTML = TOP5.map(p => {
+    const badgeHtml = capBadgeHtml(p.capSuit, p.minCap, null);
+    const scoreBarW = (p.score / 100 * 100).toFixed(1);
+    const chgColor = p.chg >= 0 ? '#22c55e' : '#ef4444';
+    const rankClass = p.rank === 1 ? 'rank-1' : p.rank === 2 ? 'rank-2' : p.rank === 3 ? 'rank-3' : 'rank-n';
+    const sepaColor = p.sepa === '8/8' ? '#22c55e' : '#f59e0b';
+    return `
+    <div class="dark-card" style="padding:14px 16px; cursor:pointer;" onclick="loadStock('${p.symbol}')">
+      <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:10px;">
+        <div class="rank-badge ${rankClass}">#${p.rank}</div>
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:2px;">
+            <span class="ticker" style="font-size:16px; font-weight:800; color:#e8eaf0;">${p.symbol}</span>
+            <span style="font-size:10px; font-weight:700; color:${sepaColor}; background:${sepaColor}20; border-radius:999px; padding:1px 7px;">SEPA ${p.sepa}</span>
+            ${badgeHtml}
+          </div>
+          <span style="font-size:12px; color:#6b7280;">${p.name}</span>
+        </div>
+        <div style="text-align:right; flex-shrink:0;">
+          <div style="font-size:15px; font-weight:700; color:#e8eaf0;">$${p.price.toFixed(2)}</div>
+          <div style="font-size:12px; font-weight:600; color:${chgColor};">${p.chg>=0?'+':''}${p.chg.toFixed(2)}%</div>
+        </div>
+      </div>
+      <!-- Score bar -->
+      <div style="margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="font-size:11px; color:#6b7280; font-weight:600;">Score</span>
+          <span style="font-size:12px; font-weight:800; color:#7c6af7;">${p.score}</span>
+        </div>
+        <div class="prog-bar-sm">
+          <div style="height:100%; width:${scoreBarW}%; background:linear-gradient(90deg,#7c6af7,#4f46e5); border-radius:999px;"></div>
+        </div>
+      </div>
+      <!-- Component pills -->
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <span style="font-size:11px; color:#9ca3af; background:#1e2030; border-radius:6px; padding:3px 8px;">RS <b style="color:#7c6af7;">${p.rs}</b></span>
+        <span style="font-size:11px; color:#9ca3af; background:#1e2030; border-radius:6px; padding:3px 8px;">Prox <b style="color:#22c55e;">${(p.prox*100).toFixed(0)}%</b></span>
+        <span style="font-size:11px; color:#9ca3af; background:#1e2030; border-radius:6px; padding:3px 8px;">VolDry <b style="color:#f59e0b;">${(p.volDry*100).toFixed(0)}%</b></span>
+        ${p.capSuit==='red' ? `<span style="font-size:11px; color:#ef4444; background:rgba(239,68,68,.1); border-radius:6px; padding:3px 8px;">Need $${p.minCap.toLocaleString()}</span>` : ''}
+      </div>
+      <!-- Briefing -->
+      <div style="margin-top:8px; font-size:12px; color:#6b7280; border-top:1px solid #1e2030; padding-top:8px;">✨ ${p.briefing}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// WATCHLIST
+// ============================================================
+function renderWatchlist() {
+  const c = document.getElementById('watchlist');
+  c.innerHTML = WATCHLIST.map(s => {
+    const badgeHtml = capBadgeSmall(s.capSuit);
+    const sepaColor = s.sepa === '8/8' ? '#22c55e' : '#f59e0b';
+    return `
+    <div class="dark-card" style="padding:12px 16px; display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="loadStock('${s.symbol}')">
+      <div style="width:36px; height:36px; border-radius:9px; background:#1e2030; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#7c6af7; flex-shrink:0;">${s.symbol.slice(0,2)}</div>
+      <div style="flex:1; min-width:0;">
+        <div style="display:flex; align-items:center; gap:5px; margin-bottom:2px; flex-wrap:wrap;">
+          <span class="ticker" style="font-size:14px; font-weight:700; color:#e8eaf0;">${s.symbol}</span>
+          <span style="font-size:10px; font-weight:700; color:${sepaColor}; background:${sepaColor}20; border-radius:999px; padding:1px 6px;">${s.sepa}</span>
+          ${badgeHtml}
+        </div>
+        <span style="font-size:11px; color:#6b7280;">${s.name}</span>
+      </div>
+      <div style="text-align:right; flex-shrink:0;">
+        <div style="font-size:14px; font-weight:700; color:#e8eaf0;">$${s.price.toFixed(2)}</div>
+        <div style="font-size:11px; font-weight:600; color:${s.chg>=0?'#22c55e':'#ef4444'};">${s.chg>=0?'+':''}${s.chg.toFixed(2)}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function loadStock(sym) { showToast(`Loading ${sym}...`); }
+function runAnalysis()  { showToast(`Analyzing ${document.getElementById('symbolInput').value.toUpperCase()}...`); }
+function showAllQualified() { showToast('12 stocks qualified · showing all...'); }
+
+// ============================================================
+// CAPITAL BADGE HELPERS
+// ============================================================
+function capBadgeHtml(suit, minCap, accountSize) {
+  if (suit === 'green')  return `<span class="cap-green" style="font-size:10px;">🟢 ทุนพอ</span>`;
+  if (suit === 'yellow') return `<span class="cap-yellow" style="font-size:10px;">🟡 ระวัง</span>`;
+  return `<span class="cap-red" style="font-size:10px;">🔴 ต้อง $${(minCap||0).toLocaleString()}+</span>`;
+}
+function capBadgeSmall(suit) {
+  if (suit === 'green')  return `<span style="font-size:10px;">🟢</span>`;
+  if (suit === 'yellow') return `<span style="font-size:10px;">🟡</span>`;
+  return `<span style="font-size:10px;">🔴</span>`;
+}
+
+// ============================================================
+// RISK CALCULATOR
+// ============================================================
+function calcRisk() {
+  const account  = parseFloat(document.getElementById('accountSize').value) || 0;
+  const riskPct  = parseFloat(document.getElementById('riskPct').value) || 1;
+  const entry    = parseFloat(document.getElementById('entryPrice').value) || 0;
+  const stop     = parseFloat(document.getElementById('stopPrice').value) || 0;
+  const frac     = document.getElementById('fractionalToggle').checked;
+
+  document.getElementById('riskPctLabel').textContent = riskPct.toFixed(2) + '%';
+
+  const alerts = document.getElementById('riskAlerts');
+  const capBox  = document.getElementById('capSuitResult');
+
+  // Edge: stop >= entry
+  if (stop >= entry && entry > 0) {
+    alerts.innerHTML = `<div class="error-box"><div style="font-size:13px; color:#ef4444; font-weight:700;">⚠️ Stop ต้องต่ำกว่าราคาเข้า</div></div>`;
+    updateCapGuide(account);
+    return;
+  }
+
+  const riskPerTrade  = account * (riskPct / 100);
+  const riskPerShare  = entry - stop;
+  const sharesExact   = riskPerShare > 0 ? riskPerTrade / riskPerShare : 0;
+  const shares        = frac ? +sharesExact.toFixed(2) : Math.floor(sharesExact);
+  const posVal        = shares * entry;
+  const posPct        = account > 0 ? (posVal / account * 100) : 0;
+
+  document.getElementById('sharesResult').textContent  = frac ? shares.toFixed(2) : shares;
+  document.getElementById('posValueResult').textContent = shares > 0 ? '$' + posVal.toLocaleString('en',{maximumFractionDigits:0}) : '—';
+  document.getElementById('posPctResult').textContent   = shares > 0 ? posPct.toFixed(1) + '%' : '—';
+  document.getElementById('riskAmtResult').textContent  = '$' + riskPerTrade.toLocaleString('en',{maximumFractionDigits:0});
+
+  // Dynamic color on posPct
+  const posPctEl = document.getElementById('posPctResult');
+  posPctEl.style.color = posPct > 20 ? '#ef4444' : posPct > 15 ? '#f59e0b' : '#e8eaf0';
+
+  // Alerts
+  let alertHtml = '';
+  if (!frac && shares < 1 && entry > 0 && riskPerShare > 0) {
+    const minCapNeeded = Math.ceil((1 * riskPerShare) / (riskPct / 100));
+    alertHtml += `<div class="error-box" style="margin-bottom:8px;">
+      <div style="font-size:13px; color:#ef4444; font-weight:700; margin-bottom:4px;">🔴 ทุนไม่พอ — ได้ 0 หุ้น</div>
+      <div style="font-size:12px; color:#9ca3af;">ต้องทุนอย่างน้อย <b style="color:#ef4444;">$${minCapNeeded.toLocaleString()}</b> สำหรับ 1 หุ้น</div>
+      <div style="font-size:12px; color:#6b7280; margin-top:6px;">ทางออก: เปิด Fractional Shares · หาหุ้นราคาต่ำกว่า</div>
+    </div>`;
+  } else if (frac && shares < 0.1 && entry > 0) {
+    alertHtml += `<div class="warn-box" style="margin-bottom:8px;"><div style="font-size:13px; color:#f59e0b;">⚠️ Fractional น้อยมาก (${shares.toFixed(3)} shares) — commission อาจกินกำไร</div></div>`;
+  }
+  if (posPct > 20 && shares > 0) {
+    alertHtml += `<div class="warn-box"><div style="font-size:13px; color:#f59e0b;">⚠️ Position ${posPct.toFixed(1)}% — กระจุกเกิน 20% ของพอร์ต</div></div>`;
+  }
+  if (frac && shares > 0) {
+    alertHtml += `<div class="info-box" style="margin-top:8px;"><div style="font-size:12px; color:#7c6af7;">Fractional mode — ต้อง broker ที่รองรับ เช่น IBKR, Alpaca</div></div>`;
+  }
+  alerts.innerHTML = alertHtml;
+
+  // Capital suitability
+  const atr = entry * 0.028; // mock 2.8% of price
+  const stopDist = atr * 2.5;
+  const minShares = 5;
+  const minCapNeeded = (minShares * stopDist) / (riskPct / 100);
+  let suitHtml = '';
+  if (account >= minCapNeeded * 1.5) {
+    const approxShares = Math.floor(riskPerTrade / riskPerShare) || 0;
+    suitHtml = `<div style="display:flex; align-items:center; gap:8px;"><span style="font-size:20px;">🟢</span><div><div style="font-size:13px; font-weight:700; color:#22c55e;">ทุนพอ — ได้ ~${approxShares > 0 ? approxShares : '?'} หุ้น</div><div style="font-size:12px; color:#6b7280;">minCapital $${minCapNeeded.toLocaleString('en',{maximumFractionDigits:0})} · คุณมี $${account.toLocaleString()}</div></div></div>`;
+  } else if (account >= minCapNeeded) {
+    suitHtml = `<div style="display:flex; align-items:center; gap:8px;"><span style="font-size:20px;">🟡</span><div><div style="font-size:13px; font-weight:700; color:#f59e0b;">ทุนพอขั้นต่ำ — position เล็กมาก</div><div style="font-size:12px; color:#6b7280;">minCapital $${minCapNeeded.toLocaleString('en',{maximumFractionDigits:0})}</div></div></div>`;
+  } else {
+    const alt1 = Math.ceil(account * (riskPct/100) * 100 / 2.8 / 2.5); // rough max affordable price
+    suitHtml = `<div style="display:flex; align-items:flex-start; gap:8px;"><span style="font-size:20px;">🔴</span><div><div style="font-size:13px; font-weight:700; color:#ef4444;">ต้องทุน $${minCapNeeded.toLocaleString('en',{maximumFractionDigits:0})}+ สำหรับ setup นี้</div>
+      <div style="font-size:12px; color:#9ca3af; margin-top:6px; line-height:1.6;">
+        ทางออก:<br>
+        1. หุ้นราคา ≤ $${alt1} ที่เหมาะกับทุน $${account.toLocaleString()}<br>
+        2. เปิด Fractional Shares (IBKR/Alpaca)<br>
+        3. สะสมทุนเพิ่มก่อน
+      </div>
+    </div></div>`;
+  }
+  capBox.innerHTML = suitHtml;
+  capBox.style.background = account >= minCapNeeded*1.5 ? 'rgba(34,197,94,.08)' : account >= minCapNeeded ? 'rgba(245,158,11,.08)' : 'rgba(239,68,68,.08)';
+  capBox.style.borderColor = account >= minCapNeeded*1.5 ? 'rgba(34,197,94,.25)' : account >= minCapNeeded ? 'rgba(245,158,11,.25)' : 'rgba(239,68,68,.25)';
+
+  updateCapGuide(account);
+}
+
+function updateCapGuide(account) {
+  const tiers = [{id:'guide500',threshold:500},{id:'guide2k',threshold:2000},{id:'guide5k',threshold:5000},{id:'guide10k',threshold:10000}];
+  tiers.forEach(t => {
+    const el = document.getElementById(t.id);
+    if (!el) return;
+    if (account >= t.threshold) {
+      el.className = 'pill pill-green'; el.textContent = '✓ คุณ';
+    } else {
+      el.className = 'pill pill-gray'; el.textContent = `$${(t.threshold-account).toLocaleString()} เพิ่ม`;
+    }
+  });
+}
+
+// ============================================================
+// JOURNAL
+// ============================================================
+function renderJournal(entries) {
+  const c = document.getElementById('journalList');
+  c.innerHTML = entries.map(e => {
+    const tc = e.type==='open'?'#7c6af7':e.type==='win'?'#22c55e':'#ef4444';
+    const tl = e.type==='open'?'OPEN':e.type==='win'?'WIN':'LOSS';
+    const pnl = e.pnl !== null ? (e.pnl>=0?'+$':'-$')+Math.abs(e.pnl) : '—';
+    return `<div class="dark-card" style="padding:14px 16px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="ticker" style="font-size:16px; font-weight:800; color:#e8eaf0;">${e.symbol}</span>
+          <span style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:${tc}20; color:${tc};">${tl}</span>
+        </div>
+        <span style="font-size:16px; font-weight:800; color:${tc};">${pnl}</span>
+      </div>
+      <div style="display:flex; gap:12px; font-size:12px; color:#6b7280; margin-bottom:8px;">
+        <span>Entry $${e.entry.toFixed(2)}</span>
+        ${e.exit ? `<span>Exit $${e.exit.toFixed(2)}</span>` : `<span>Stop $${e.stop.toFixed(2)}</span>`}
+        <span>${e.shares} shares</span>
+      </div>
+      <div style="font-size:12px; color:#9ca3af; border-left:2px solid ${tc}; padding-left:8px;">${e.reason}</div>
+      <div style="font-size:11px; color:#4b5563; margin-top:6px;">${e.date}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterJournal(f, btn) {
+  document.querySelectorAll('#page-journal .seg button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderJournal(f==='all' ? JOURNAL : JOURNAL.filter(e=>e.type===f));
+}
+
+// ============================================================
+// CHECKLIST
+// ============================================================
+function updateChecklist() {
+  const ids = ['chk1','chk2','chk3','chk4','chk5'];
+  const done = ids.filter(id=>document.getElementById(id).checked).length;
+  const all  = done === ids.length;
+  const btn  = document.getElementById('goTradeBtn');
+  btn.style.background = all ? '#7c6af7' : '#2a2d45';
+  btn.style.color      = all ? 'white'   : '#6b7280';
+  btn.disabled = !all;
+  btn.textContent = all ? '✅ บันทึก Trade' : `บันทึก Trade (${done}/${ids.length} ตอบแล้ว)`;
+}
+
+// ============================================================
+// VI TABS
+// ============================================================
+function viTab(tab, btn) {
+  ['piotroski','altman','dcf'].forEach(t=>document.getElementById('vi-'+t).style.display='none');
+  document.getElementById('vi-'+tab).style.display = 'block';
+  document.querySelectorAll('#page-value .seg-l button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ============================================================
+// SHEET
+// ============================================================
+function openSheet(id) {
+  document.getElementById('sheetOverlay').style.display='block';
+  document.getElementById(id).classList.add('open');
+}
+function closeSheet() {
+  document.getElementById('sheetOverlay').style.display='none';
+  document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));
+}
+let tradeType='long';
+function setTradeType(t) {
+  tradeType=t;
+  document.getElementById('typeLong').classList.toggle('active',t==='long');
+  document.getElementById('typeShort').classList.toggle('active',t==='short');
+}
+function saveTrade() {
+  const sym = document.getElementById('tradeSymbol').value.toUpperCase();
+  JOURNAL.unshift({ id:Date.now(), symbol:sym, type:'open',
+    entry: parseFloat(document.getElementById('tradeEntry').value),
+    shares: parseInt(document.getElementById('tradeShares').value),
+    stop: parseFloat(document.getElementById('tradeStop').value),
+    reason: document.getElementById('tradeReason').value,
+    date: new Date().toISOString().split('T')[0], pnl:null, exit:null });
+  renderJournal(JOURNAL);
+  closeSheet();
+  showToast(`${sym} saved ✓`);
+  setTimeout(()=>switchTab('journal'),300);
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportJournal() {
+  const data = JSON.stringify({exportedAt:new Date().toISOString(),journal:JOURNAL},null,2);
+  const url = URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  const a = document.createElement('a'); a.href=url;
+  a.download='riskfirst_journal_'+new Date().toISOString().split('T')[0]+'.json';
+  a.click(); URL.revokeObjectURL(url);
+  showToast('📤 Exported journal.json');
+}
+
+// ============================================================
+// PIOTROSKI DOTS
+// ============================================================
+function renderPioDots(score) {
+  const c = document.getElementById('pioDots');
+  if (!c) return;
+  c.innerHTML = Array.from({length:9},(_,i)=>
+    `<div style="flex:1; height:8px; border-radius:4px; background:${i<score?'#3b7af8':'#e8eaef'};"></div>`
+  ).join('');
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  setTimeout(()=>{ t.style.transform='translateX(-50%) translateY(-80px)'; },2200);
+}
+
+// ============================================================
+// RANGE INPUT
+// ============================================================
+document.getElementById('riskPct').addEventListener('input', function() {
+  document.getElementById('riskPctLabel').textContent = parseFloat(this.value).toFixed(2)+'%';
+  calcRisk();
+});
+
+// ============================================================
+// INIT
+// ============================================================
+renderTop5();
+renderWatchlist();
+renderJournal(JOURNAL);
+calcRisk();
+setTimeout(()=>renderPioDots(8), 100);
+</script>
+</body>
+</html>

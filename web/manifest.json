@@ -1,0 +1,16 @@
+{
+  "name": "RiskFirst Trading Assistant",
+  "short_name": "RiskFirst",
+  "description": "Personal Trading Web App",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0B0E14",
+  "theme_color": "#0B0E14",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'><rect width='128' height='128' rx='24' fill='%238B5CF6'/><text x='64' y='80' font-family='Arial' font-size='60' font-weight='bold' fill='white' text-anchor='middle'>RF</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
