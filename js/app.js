@@ -228,6 +228,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('riskfirst:vi-activated', () => renderReallocation());
   document.addEventListener('vi-risk-shown',          () => updateVIRiskCalc());
 
+  // Auto-refresh when returning to the app from background (iOS/Mobile Safari PWA sync)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      loadDashboard();
+      loadWatchlist('trader');
+      loadWatchlist('vi');
+    }
+  });
+
   // ── Initial load ──
   await loadDashboard();
   loadWatchlist('trader');

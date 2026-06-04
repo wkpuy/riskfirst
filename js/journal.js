@@ -14,37 +14,48 @@ import { calculatePyramidRisk, checkMonthlyCooldown } from './rules.js';
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export async function loadDashboard() {
-  [state.traderPortfolio, state.viPortfolio] = await Promise.all([
-    getPortfolio('trader'),
-    getPortfolio('vi'),
-  ]);
+  try {
+    [state.traderPortfolio, state.viPortfolio] = await Promise.all([
+      getPortfolio('trader'),
+      getPortfolio('vi'),
+    ]);
+  } catch (e) { console.warn('Port load err:', e); }
 
-  // Sync capital into Trader risk calc
-  const accountEl = document.getElementById('calc-account-size');
-  if (accountEl) { accountEl.value = state.traderPortfolio.capital; updateRiskCalc(); }
+  try {
+    const accountEl = document.getElementById('calc-account-size');
+    if (accountEl && state.traderPortfolio) { accountEl.value = state.traderPortfolio.capital; updateRiskCalc(); }
 
-  // Update top-bar capital display
-  _setText('global-capital-txt-trader', '$' + state.traderPortfolio.capital.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
-  _setText('global-capital-txt-vi',     '$' + state.viPortfolio.capital.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
-  _setText('dash-capital',              state.traderPortfolio.capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    if (state.traderPortfolio) {
+      _setText('global-capital-txt-trader', '$' + state.traderPortfolio.capital.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
+      _setText('dash-capital',              state.traderPortfolio.capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    }
+    if (state.viPortfolio) {
+      _setText('global-capital-txt-vi',     '$' + state.viPortfolio.capital.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
+    }
+    updateVIRiskCalc();
+    renderReallocation();
+  } catch (e) { console.warn('UI update err:', e); }
 
-  updateVIRiskCalc();
-  renderReallocation();
+  let entries = [], viEntries = [];
+  try {
+    [entries, viEntries] = await Promise.all([
+      getJournalEntries('trader'),
+      getJournalEntries('vi'),
+    ]);
+  } catch (e) { console.error('DB fetch err:', e); }
 
-  const [entries, viEntries] = await Promise.all([
-    getJournalEntries('trader'),
-    getJournalEntries('vi'),
-  ]);
+  try {
+    _renderStats(entries);
+    _renderJournal(entries,   'journal-list',    false);
+    _renderJournal(viEntries, 'vi-journal-list', true);
+  } catch (e) { console.error('Render err:', e); }
 
-  _renderStats(entries);
-  _renderJournal(entries,   'journal-list',    false);
-  _renderJournal(viEntries, 'vi-journal-list', true);
-
-  // Update monthly cooldown status (used by Risk Calculator)
-  if (state.traderPortfolio) {
-    state.cooldownStatus = checkMonthlyCooldown(entries, state.traderPortfolio.capital);
-    updateRiskCalc(); // re-render risk calc badge if visible
-  }
+  try {
+    if (state.traderPortfolio) {
+      state.cooldownStatus = checkMonthlyCooldown(entries, state.traderPortfolio.capital);
+      updateRiskCalc();
+    }
+  } catch (e) { console.warn('Cooldown err:', e); }
 }
 
 // ─── Sync Journal Prices ──────────────────────────────────────────────────────
