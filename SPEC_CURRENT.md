@@ -1,4 +1,4 @@
-# RiskFirst — Current Spec (อัปเดตล่าสุด 2026-06-04)
+# RiskFirst — Current Spec (อัปเดตล่าสุด 2026-06-05)
 
 > เอกสารนี้คือ **สถานะปัจจุบันของโปรเจกต์จริง** (ยึดโค้ดเป็น source of truth)
 > ใช้ส่งต่อ AI chat ใหม่เพื่อทำงานต่อได้ทันที
@@ -121,6 +121,7 @@ riskfirst/                    ← root (ไม่มี /web subfolder อีก
 - Entry, Stop, Target → shares, position value, Max Loss, Max Gain, R/R
 - Fractional Shares toggle
 - Alert ถ้า position > 20% ของพอร์ต
+- **Monthly Loss Cooldown**: ถ้า net loss เดือนนี้ ≥ 8% ของ capital → force 0.25% max, grey-out pills 1%/2%/3%, badge 🛡️ Defensive Mode
 
 #### 5.7 Watchlist
 - Add/Remove tickers + **Bulk Add** วางหลายตัวพร้อมกัน
@@ -130,11 +131,21 @@ riskfirst/                    ← root (ไม่มี /web subfolder อีก
 #### 5.8 Trade Journal
 - บันทึก Open / Closed trades พร้อม Strategy tag + TradingView link
 - ปิดไม้ → อัปเดต capital อัตโนมัติ
-- Stats: PnL, Win Rate, Avg R/R, Profit Factor
+- Stats: PnL, Win Rate, Avg R/R, Profit Factor, **Max Drawdown** (peak-to-trough all-time)
 - กรองตาม timeframe: All / 1M / 1W
 - Top Performers
 - Export/Import JSON backup
 - Sync Capital Modal
+- **Live P&L Sync**: ปุ่ม Sync ราคา → ดึง Finnhub, แสดง unrealized PnL + 🎯/⚠️ badges
+- **Order TTL**: open orders อายุ > 72h → auto-expire + toast เตือน
+- **Pyramiding (Anti-Martingale)**: ปุ่ม ➕ Pyramid บน open card → modal คำนวณ lot 2 ≤ 50% ของ lot 1 + combined risk gate
+- **Move to Breakeven**: ปุ่ม 📍 BE → `stopPrice = buyPrice`, badge "Risk Free" บน card
+- **Partial Close (✂️)**: ขายบางส่วน → สร้าง closed entry สำหรับส่วนที่ขาย, อัปเดต shares ที่เหลือ, อัปเดต capital
+
+#### 5.8b Advanced Trader Risk Guards
+- **Anti-Martingale Pyramiding**: `calculatePyramidRisk()` ใน rules.js — 3 เงื่อนไข: (1) entry > buyPrice ไม้แรก, (2) lot 2 ≤ 50% ของ lot 1, (3) combined risk ≤ riskPct
+- **Monthly Cooldown**: `checkMonthlyCooldown()` — default threshold 8%, force 0.25% risk, Defensive Mode badge
+- **Order TTL**: auto-expire open orders ที่ค้างเกิน 72h ใน bootstrap
 
 ### VI Module (ข้อมูลจริงทั้งหมด — ไม่ใช่ mock)
 
@@ -163,6 +174,7 @@ riskfirst/                    ← root (ไม่มี /web subfolder อีก
 - Grouped open positions (avg cost)
 - Dividend log (บวกพอร์ต VI)
 - Closed positions
+- **Yield on Cost (YOC)**: `totalDividend / (avgCost × shares) × 100` แสดง badge เขียวบน grouped header เมื่อมีปันผลบันทึกไว้
 
 ---
 
@@ -345,7 +357,7 @@ python3 -m http.server 3456
 |----------|--------|---------|
 | 🟡 Medium | RS Rank true percentile | ตอนนี้ใช้ excess return vs SPY (approximate) — ยังไม่ใช่ true cross-sectional rank |
 | 🟡 Medium | Watchlist scan status badge | แสดง SEPA score / last scan time บน watchlist card โดยไม่ต้อง scan ซ้ำ |
-| 🟡 Medium | SW cache ใน production | Service Worker ยัง unregister ตัวเอง (อยู่ระหว่างพัฒนา) |
+| 🟡 Medium | Order TTL user-configurable | ตอนนี้ hardcode 72h — ควรให้ปรับได้ใน Settings |
+| 🟡 Medium | Monthly Cooldown override | ตอนนี้ force 0.25% ไม่มีทาง override — ควรเพิ่มปุ่ม "Override (รับทราบ)" |
 | 🟢 Low | Top 5 Picks daily cron | Auto-scan universe ทุกเช้า (ต้องมี backend) |
 | 🟢 Low | Piotroski F-Score | ยังไม่ implement จริง (อยู่ใน spec เดิมแต่ยังไม่มี data source) |
-| 🟢 Low | DCF Calculator | เป็น manual input เท่านั้นตอนนี้ |

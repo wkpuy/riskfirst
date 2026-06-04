@@ -38,4 +38,8 @@ export const state = {
   // Pyramid modal context
   pyramidTradeId:  null,
   pyramidFirstLot: null,   // { shares, buyPrice, stopPrice, symbol }
+
+  // Partial close modal context
+  partialCloseId:  null,
+  partialCloseCtx: null,   // { symbol, buyPrice, totalShares }
 };

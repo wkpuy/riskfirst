@@ -102,6 +102,112 @@ export async function syncJournalPrices() {
   }
 }
 
+// ─── Move to Breakeven ────────────────────────────────────────────────────────
+
+export async function moveToBreakeven(id, buyPrice) {
+  await updateJournalEntry(id, { stopPrice: parseFloat(buyPrice) });
+  showToast('Stop → Breakeven 📍 ไม้นี้ Risk Free แล้ว ✅', 'success');
+  await loadDashboard();
+}
+
+// ─── Partial Close Modal ──────────────────────────────────────────────────────
+
+export function openPartialCloseModal(id, symbol, buyPrice, shares) {
+  state.partialCloseId  = id;
+  state.partialCloseCtx = { symbol, buyPrice: parseFloat(buyPrice), totalShares: parseFloat(shares) };
+
+  document.getElementById('pc-symbol').textContent = symbol;
+  document.getElementById('pc-info').innerHTML = `
+    <div class="flex justify-between"><span>Buy Price</span><span class="font-bold text-white">$${parseFloat(buyPrice).toFixed(2)}</span></div>
+    <div class="flex justify-between"><span>Total Shares</span><span class="font-bold text-white">${shares}</span></div>`;
+  document.getElementById('pc-shares').value    = '';
+  document.getElementById('pc-shares').max      = shares - 1;
+  document.getElementById('pc-sell-price').value = '';
+  document.getElementById('pc-pnl-preview').innerHTML = '<div class="text-gray-500 text-center text-xs">ใส่จำนวนและราคาขาย</div>';
+  openModal('partial-close-modal', 'partial-close-sheet');
+}
+
+export function closePartialCloseModal() {
+  closeModal('partial-close-modal', 'partial-close-sheet');
+  state.partialCloseId  = null;
+  state.partialCloseCtx = null;
+}
+
+export function updatePartialPnl() {
+  const ctx       = state.partialCloseCtx;
+  if (!ctx) return;
+  const sellShares = parseFloat(document.getElementById('pc-shares')?.value);
+  const sellPrice  = parseFloat(document.getElementById('pc-sell-price')?.value);
+  const preview    = document.getElementById('pc-pnl-preview');
+  if (!sellShares || !sellPrice || sellShares <= 0 || sellPrice <= 0 || !preview) return;
+
+  const pnl        = (sellPrice - ctx.buyPrice) * sellShares;
+  const pnlPct     = ((sellPrice - ctx.buyPrice) / ctx.buyPrice) * 100;
+  const remaining  = ctx.totalShares - sellShares;
+  const isProfit   = pnl >= 0;
+  const color      = isProfit ? '#22c55e' : '#ef4444';
+
+  preview.innerHTML = `
+    <div class="grid grid-cols-3 gap-2 text-xs">
+      <div class="bg-white/5 rounded-lg p-2 text-center"><div class="text-gray-400 mb-0.5">PnL ส่วนนี้</div>
+        <div class="font-black" style="color:${color}">${isProfit ? '+' : ''}$${pnl.toFixed(2)}</div>
+        <div style="color:${color}">${isProfit ? '+' : ''}${pnlPct.toFixed(1)}%</div></div>
+      <div class="bg-white/5 rounded-lg p-2 text-center"><div class="text-gray-400 mb-0.5">ขาย</div>
+        <div class="font-black text-white">${sellShares} shares</div></div>
+      <div class="bg-white/5 rounded-lg p-2 text-center"><div class="text-gray-400 mb-0.5">เหลือ</div>
+        <div class="font-black ${remaining > 0 ? 'text-blue-400' : 'text-gray-400'}">${remaining} shares</div></div>
+    </div>`;
+}
+
+export async function confirmPartialClose() {
+  const ctx = state.partialCloseCtx;
+  const id  = state.partialCloseId;
+  if (!ctx || !id) return;
+
+  const sellShares = parseFloat(document.getElementById('pc-shares')?.value);
+  const sellPrice  = parseFloat(document.getElementById('pc-sell-price')?.value);
+  if (!sellShares || sellShares <= 0)      { showToast('กรุณาใส่จำนวนหุ้นที่ขาย', 'warning'); return; }
+  if (!sellPrice || sellPrice <= 0)        { showToast('กรุณาใส่ราคาขาย', 'warning'); return; }
+  if (sellShares >= ctx.totalShares)       { showToast('ถ้าขายทั้งหมด ให้ใช้ปุ่ม "ปิดไม้" แทน', 'warning'); return; }
+
+  const pnl       = (sellPrice - ctx.buyPrice) * sellShares;
+  const remaining = ctx.totalShares - sellShares;
+  const isVI      = false;
+
+  // 1. Update original entry: reduce shares
+  await updateJournalEntry(id, { shares: remaining });
+
+  // 2. Create a closed entry for the sold portion (preserves audit trail)
+  await addJournalEntry({
+    symbol:      ctx.symbol,
+    type:        'trader',
+    status:      'closed',
+    buyPrice:    ctx.buyPrice,
+    sellPrice:   sellPrice,
+    shares:      sellShares,
+    stopPrice:   null,
+    targetPrice: null,
+    strategy:    'partial-TP',
+    chartLink:   '',
+    accountSize: null,
+    riskPct:     null,
+    plannedLoss: null,
+    plannedWin:  null,
+    rrRatio:     null,
+    targetLabel: 'Partial TP',
+    isApplied:   true,
+    createdAt:   Date.now(),
+  });
+
+  // 3. Update portfolio
+  const port = state.traderPortfolio || await getPortfolio('trader');
+  await updatePortfolio({ capital: port.capital + pnl, initialCapital: port.initialCapital }, 'trader');
+
+  closePartialCloseModal();
+  showToast(`✂️ ขาย ${sellShares} shares ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} · เหลือ ${remaining} shares open`, pnl >= 0 ? 'success' : 'warning');
+  await loadDashboard();
+}
+
 // ─── Pyramid Modal ────────────────────────────────────────────────────────────
 
 export function openPyramidModal(id, symbol, buyPrice, shares, stopPrice) {
@@ -703,12 +809,25 @@ function _renderStats(entries) {
   const initCap = state.traderPortfolio?.initialCapital || 1;
   const pf      = grossLoss === 0 ? (grossProfit > 0 ? 99.99 : 0) : grossProfit / grossLoss;
 
+  // Max Drawdown — peak-to-trough across all-time closed trades (always uses full history)
+  const allClosed = entries
+    .filter(t => t.status === 'closed' && t.isApplied !== false && t.shares > 0 && t.strategy !== 'dividend')
+    .sort((a, b) => a.createdAt - b.createdAt);
+  let ddCum = 0, ddPeak = initCap, maxDD = 0;
+  allClosed.forEach(t => {
+    ddCum += (t.sellPrice - t.buyPrice) * t.shares;
+    const cur = initCap + ddCum;
+    if (cur > ddPeak) ddPeak = cur;
+    if (ddPeak > 0) maxDD = Math.max(maxDD, (ddPeak - cur) / ddPeak * 100);
+  });
+
   _setText('dash-pnl',          `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`);
   _setText('dash-pnl-pct',      `${pnl >= 0 ? '+' : ''}${((pnl / initCap) * 100).toFixed(1)}%`);
   _setText('dash-winrate',      `${applied > 0 ? ((winCount / applied) * 100).toFixed(1) : 0}%`);
   _setText('dash-trades-count', String(applied));
   _setText('dash-avg-rr',       `${rrCount > 0 ? (sumRR / rrCount).toFixed(2) : '0.00'}R`);
   _setText('dash-pf',           pf === 99.99 ? 'MAX' : pf.toFixed(2));
+  _setText('dash-max-dd',       maxDD > 0 ? `-${maxDD.toFixed(1)}%` : '—');
 
   // Label updates
   const pnlLabel = document.querySelector('#dash-pnl')?.previousElementSibling;
@@ -804,6 +923,16 @@ function _renderTraderJournal(el, entries) {
         </div>`;
       })() : (cur ? `<div class="mt-2 pt-2 border-t border-white/10 text-[10px] text-gray-400">ราคาล่าสุด <span class="text-white font-bold">$${cur.toFixed(2)}</span></div>` : '');
 
+      const isBE   = t.stopPrice != null && parseFloat(t.stopPrice) >= parseFloat(t.buyPrice);
+      const beCell = t.stopPrice != null
+        ? isBE
+          ? `<div class="py-2 text-center text-[10px] font-bold text-green-400 border border-green-500/20 rounded-lg bg-green-500/5">📍 Risk Free</div>`
+          : `<button onclick="moveToBreakeven(${t.id}, ${t.buyPrice})" class="py-2 rounded-lg text-xs font-bold border border-green-500/40 text-green-400 hover:bg-green-500/10 transition-colors">📍 BE</button>`
+        : `<div></div>`;
+      const partialCell = t.shares >= 2
+        ? `<button onclick="openPartialCloseModal(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares})" class="py-2 rounded-lg text-xs font-bold border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors">✂️ ขายบางส่วน</button>`
+        : `<div></div>`;
+
       el.innerHTML += `
         <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-xl p-3 mb-2">
           <div class="flex justify-between items-start mb-2">
@@ -814,7 +943,7 @@ function _renderTraderJournal(el, entries) {
               </div>
               <div class="text-[10px] text-gray-400">
                 Buy <span class="text-white font-bold">$${t.buyPrice}</span>
-                ${t.stopPrice   ? ` · Stop <span class="text-red-400">$${t.stopPrice}</span>`   : ''}
+                ${t.stopPrice   ? ` · Stop <span class="${isBE ? 'text-green-400' : 'text-red-400'}">$${t.stopPrice}</span>` : ''}
                 ${t.targetPrice ? ` · Target <span class="text-green-400">$${t.targetPrice}</span>` : ''}
                 · ${t.shares} shares
               </div>
@@ -834,6 +963,8 @@ function _renderTraderJournal(el, entries) {
                     class="py-2 rounded-lg text-xs font-bold border border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors">
               ➕ Pyramid
             </button>
+            ${beCell}
+            ${partialCell}
             <button onclick="openCloseTradeModal(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares}, ${t.targetPrice || 'null'})"
                     class="py-2 rounded-lg text-sm font-bold border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 transition-colors">
               ปิดไม้ →
@@ -900,6 +1031,15 @@ function _renderVIJournal(el, entries) {
     const avgCost  = g.shares > 0 ? g.cost / g.shares : (g.trades[0]?.buyPrice || 0);
     const safeSymbol = escapeHtml(sym);
 
+    // Yield on Cost: dividends received for this symbol / total cost basis
+    const symDivs    = dividends.filter(d => d.symbol === sym);
+    const totalDiv   = symDivs.reduce((s, d) => s + (d.sellPrice || 0), 0);
+    const totalCost  = avgCost * g.shares;
+    const yoc        = (totalCost > 0 && totalDiv > 0) ? (totalDiv / totalCost * 100) : 0;
+    const yocBadge   = yoc > 0
+      ? `<span class="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full ml-1">YOC ${yoc.toFixed(1)}%</span>`
+      : '';
+
     const cur = state.journalPrices[sym];
     let livePnlHeader = '';
     if (cur && g.shares > 0) {
@@ -924,8 +1064,10 @@ function _renderVIJournal(el, entries) {
     el.innerHTML += `
       <div class="bg-white border border-gray-200 rounded-xl mb-3 shadow-sm overflow-hidden">
         <div class="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
-          <div class="font-black text-gray-800 text-lg">
-            ${safeSymbol} <span class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full ml-1">Avg $${avgCost.toFixed(2)}</span>
+          <div class="font-black text-gray-800 text-lg flex items-center flex-wrap gap-1">
+            ${safeSymbol}
+            <span class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Avg $${avgCost.toFixed(2)}</span>
+            ${yocBadge}
           </div>
           <div class="text-xs font-bold text-gray-500">${g.shares > 0 ? `${g.shares} Shares` : 'Tracking Only'}</div>
         </div>

@@ -283,6 +283,15 @@
             <div class="text-xs text-gray-400 mb-1">Profit Factor</div>
             <div class="text-xl font-bold text-purple-400" id="dash-pf">0.00</div>
           </div>
+          <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-2xl p-4 col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-xs text-gray-400 mb-1">Max Drawdown <span class="text-[9px] text-gray-600">(all-time peak → trough)</span></div>
+                <div class="text-xl font-bold text-red-400" id="dash-max-dd">—</div>
+              </div>
+              <div class="text-3xl opacity-20">📉</div>
+            </div>
+          </div>
         </div>
 
         <!-- Timeframe & Top Performers -->
@@ -871,6 +880,40 @@
       <div id="pyramid-error" class="hidden rounded-xl px-3 py-2.5 mb-3 text-xs font-bold text-red-400 border border-red-500/30 bg-red-500/10"></div>
 
       <button onclick="confirmPyramid()" class="w-full btn-primary">➕ บันทึกไม้ที่ 2</button>
+    </div>
+  </div>
+
+  <!-- ─── Partial Close Modal ────────────────────────────── -->
+  <div id="partial-close-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex flex-col justify-end transition-opacity opacity-0">
+    <div id="partial-close-sheet" class="bg-[var(--card-dark)] w-full rounded-t-3xl border-t border-[var(--border-dark)] p-5 transform translate-y-full transition-transform">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-lg font-bold">✂️ ขายบางส่วน — <span id="pc-symbol" class="text-blue-400"></span></h3>
+          <p class="text-[10px] text-gray-400 mt-0.5">Partial Take Profit · เหลือ position ค้างไว้</p>
+        </div>
+        <button onclick="closePartialCloseModal()" class="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center font-bold text-gray-400 hover:text-white">✕</button>
+      </div>
+
+      <div id="pc-info" class="bg-white/5 rounded-xl p-3 mb-4 text-xs text-gray-400 space-y-1 border border-white/5"></div>
+
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="text-xs text-gray-400 font-semibold mb-1.5 block">หุ้นที่ขาย (shares)</label>
+          <input type="number" id="pc-shares" placeholder="0" min="1" oninput="updatePartialPnl()"
+                 class="input-elegant w-full font-mono text-white">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 font-semibold mb-1.5 block">ราคาขาย ($)</label>
+          <input type="number" id="pc-sell-price" placeholder="0.00" oninput="updatePartialPnl()"
+                 class="input-elegant w-full font-mono text-green-400 border-green-500/30">
+        </div>
+      </div>
+
+      <div id="pc-pnl-preview" class="rounded-xl p-3 mb-4 bg-white/5 border border-white/10 min-h-[52px]">
+        <div class="text-gray-500 text-center text-xs">ใส่จำนวนและราคาขาย</div>
+      </div>
+
+      <button onclick="confirmPartialClose()" class="w-full btn-primary">✂️ ยืนยันขายบางส่วน</button>
     </div>
   </div>
 

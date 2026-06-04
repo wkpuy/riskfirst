@@ -71,11 +71,14 @@
           <a href="#journal" class="toc-link">4. Trade Journal</a>
           <a href="#metrics" class="toc-link sub">Performance Metrics</a>
           <a href="#order-ttl" class="toc-link sub">Order TTL</a>
+          <a href="#breakeven" class="toc-link sub">Move to Breakeven</a>
+          <a href="#partial-close" class="toc-link sub">Partial Close</a>
           <a href="#vi" class="toc-link">5. Value Module</a>
           <a href="#vi-score" class="toc-link sub">VI Quality Score</a>
           <a href="#fair-value" class="toc-link sub">Fair Value คืออะไร?</a>
           <a href="#mos" class="toc-link sub">Margin of Safety</a>
           <a href="#vi-sizing" class="toc-link sub">Position Sizing VI</a>
+          <a href="#yoc" class="toc-link sub">Yield on Cost</a>
           <a href="#glossary" class="toc-link">6. Glossary & สูตร</a>
         </nav>
       </div>
@@ -539,6 +542,21 @@ expectancy = (0.50 × $200) − (0.50 × $100) = $50 ต่อ trade ✅
             </div>
             <p class="text-xs text-gray-400">Expectancy บอกว่า "โดยเฉลี่ยแล้วจะได้หรือเสียเท่าไหร่ต่อ trade" ถ้าเป็นบวก = ระบบมี positive expected value = มี Edge ทางสถิติ</p>
           </div>
+
+          <!-- Max Drawdown -->
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex justify-between items-start mb-2">
+              <h4 class="font-bold text-red-400">Max Drawdown</h4>
+              <span class="badge bg-red-900/40 text-red-300">Dashboard</span>
+            </div>
+            <div class="formula mb-2">
+maxDrawdown = (peak − trough) / peak × 100
+
+<span class="text-gray-400">// คำนวณตลอด all-time history ไม่ใช่แค่ timeframe</span>
+<span class="text-gray-400">// peak = สูงสุดสะสมของ initialCapital + cumPnL ก่อนหน้า</span>
+            </div>
+            <p class="text-xs text-gray-400">Max Drawdown บอกว่าพอร์ตเคย "ร่วงหนักสุดกี่ %จากจุดสูงสุด" — เป็น benchmark สำคัญว่าคุณ size ได้เหมาะสมไหม ถ้า Max DD &gt; 20% อาจ size เกินไป</p>
+          </div>
         </div>
 
         <!-- Order TTL -->
@@ -571,6 +589,56 @@ if age &gt; 72 × 60 × 60 × 1000:
         <div class="callout callout-yellow">
           <div class="font-bold text-yellow-300 mb-1">⚠️ สิ่งที่ต้องทำเมื่อ EXPIRED</div>
           <p class="text-xs text-gray-300">ลบ entry ออกจาก Journal และ <strong>ยกเลิก Buy-Stop Order ที่ broker</strong> ด้วย — การ expire ใน app ไม่ได้ยกเลิก order จริงที่ broker</p>
+        </div>
+
+        <!-- Move to Breakeven -->
+        <h3 id="breakeven" class="section text-xl font-bold mb-3 mt-8">4.3 Move to Breakeven — Risk-Free Trade</h3>
+        <p class="text-gray-400 text-sm mb-4">เมื่อหุ้นวิ่งขึ้นมาถึง 1R ขยับ Stop Loss ขึ้นมาที่ต้นทุน (Breakeven) ทันที — ไม้นั้นกลายเป็น <strong>Risk-Free Trade</strong> ไม่มีทางขาดทุนอีกแล้ว</p>
+
+        <div class="formula mb-4">
+newStop = buyPrice  <span class="text-gray-400">// ขยับ stop มาที่ entry price</span>
+
+<span class="text-gray-400">// ตัวอย่าง: Buy $100, Stop เดิม $92 (risk = $8)</span>
+<span class="text-gray-400">// ราคาขึ้นมา $108 (= 1R profit) → กด BE → Stop = $100</span>
+<span class="text-gray-400">// ถ้าตลาดพลิก Stop จะ hit ที่ $100 → PnL = $0 ไม่ขาดทุน</span>
+        </div>
+
+        <div class="space-y-2 mb-4">
+          <div class="flex gap-3 items-start bg-gray-900 rounded-xl p-3 border border-gray-800">
+            <span class="text-lg shrink-0">📍</span>
+            <div class="text-xs text-gray-300"><span class="font-bold text-green-400">เมื่อกด BE:</span> Stop อัปเดตใน Journal, badge "Risk Free" ปรากฏบน open card, สีตัวเลข Stop เปลี่ยนเป็นเขียว</div>
+          </div>
+        </div>
+
+        <div class="callout callout-green">
+          <div class="font-bold text-green-300 mb-1">💡 กด BE เมื่อไหร่?</div>
+          <p class="text-xs text-gray-300">Minervini แนะนำ: เมื่อหุ้นขึ้น 1R จากจุดซื้อ หรือเมื่อ breakout ยืนยันแล้ว (volume สูง, ราคาปิดเหนือ pivot) ไม่ควรรีบเกินไปเพราะ noise อาจ stop ออกก่อน setup จะ fully develop</p>
+        </div>
+
+        <!-- Partial Close -->
+        <h3 id="partial-close" class="section text-xl font-bold mb-3 mt-8">4.4 Partial Close — แบ่งขายบางส่วน</h3>
+        <p class="text-gray-400 text-sm mb-4">แทนที่จะขายทีเดียวหมด สามารถ <strong>ขายบางส่วน</strong> ที่ TP1 แล้วรันส่วนที่เหลือต่อ เพื่อ lock กำไรบางส่วนไว้ก่อนในขณะที่ยังมี exposure ตลาดอยู่</p>
+
+        <div class="formula mb-4">
+<span class="text-gray-400">// ตัวอย่าง: ซื้อ 10 shares @ $100, Stop $92, Target $116 (2R)</span>
+
+<span class="text-yellow-300">TP1:</span> ขาย 5 shares @ $116  → PnL = +$80, เหลือ 5 shares open
+<span class="text-yellow-300">TP2:</span> รันต่อถึง $132 (4R) → ขาย 5 shares เหลือ → PnL = +$160
+รวม PnL = $240 แทนที่จะขาย 10 shares @ $116 = $160 เท่านั้น
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4 text-xs text-gray-300">
+          <div class="font-bold text-white mb-2">สิ่งที่เกิดขึ้นเมื่อ Partial Close</div>
+          <div class="space-y-1">
+            <div class="flex gap-2"><span class="text-green-400 shrink-0">→</span><span>บันทึก closed entry ใหม่สำหรับส่วนที่ขาย (audit trail ครบ)</span></div>
+            <div class="flex gap-2"><span class="text-green-400 shrink-0">→</span><span>Original entry อัปเดต shares เป็นจำนวนที่เหลือ (ยังคง OPEN)</span></div>
+            <div class="flex gap-2"><span class="text-green-400 shrink-0">→</span><span>Portfolio capital อัปเดตด้วย PnL ส่วนที่ขายไปแล้ว</span></div>
+          </div>
+        </div>
+
+        <div class="callout callout-blue">
+          <div class="font-bold text-blue-300 mb-1">💡 แนะนำทำ BE ก่อน Partial Close</div>
+          <p class="text-xs text-gray-300">ลำดับที่ดีที่สุด: (1) ราคาถึง 1R → กด BE ก่อน → ไม้ไม่มีความเสี่ยงแล้ว (2) ราคาถึง TP1 → Partial Close ขาย 50% (3) รัน 50% ที่เหลือต่อถึง TP2 ด้วย trailing stop</p>
         </div>
       </section>
 
@@ -827,8 +895,33 @@ shares = buyAmount / currentPrice
           <p class="text-xs text-blue-200"><strong>ทำไม 2 Rules ไม่ใช่ 1?</strong> Rule 1 ป้องกัน Concentration Risk (ไม่ถือหุ้นตัวเดียวเกิน 10%) · Rule 2 ทำให้ซื้อมากเมื่อถูก ซื้อน้อยเมื่อแพง — ผลลัพธ์คือ Dollar-Cost Averaging ที่ "똑똑" กว่า เพราะน้ำหนักตาม Valuation</p>
         </div>
 
+        <!-- Yield on Cost -->
+        <h3 id="yoc" class="section text-xl font-bold mb-3 mt-8">5.5 Yield on Cost (YOC) — ผลตอบแทนปันผลต่อต้นทุนแท้จริง</h3>
+        <p class="text-gray-400 text-sm mb-4">YOC คือ dividend yield ที่คำนวณจาก <strong>ต้นทุนที่ซื้อมาจริงๆ</strong> ไม่ใช่ราคาตลาดปัจจุบัน — ยิ่งถือนาน ยิ่งปันผลสะสมมาก YOC ยิ่งสูง ซึ่งเป็นหัวใจของ Compounding ระยะยาว</p>
+
+        <div class="formula mb-4">
+YOC = (dividendsReceived / costBasis) × 100
+
+<span class="text-gray-400">// costBasis = avgCost × shares</span>
+<span class="text-gray-400">// ตัวอย่าง: ซื้อ AAPL 10 shares @ $150 → costBasis = $1,500</span>
+<span class="text-gray-400">// รับปันผลรวม $45 → YOC = 45/1500 × 100 = 3.0%</span>
+        </div>
+
+        <div class="space-y-2 mb-4">
+          <div class="flex gap-3 items-start bg-gray-900 rounded-xl p-3 border border-gray-800 text-xs text-gray-300">
+            <span class="text-lg shrink-0">💡</span>
+            <div><span class="font-bold text-white">YOC vs Current Yield ต่างกันอย่างไร?</span><br>
+            Current Yield คำนวณจากราคาตลาดวันนี้ — ถ้าราคาขึ้นมาก yield ดูเหมือนต่ำลง แต่ YOC สะท้อนความจริงว่าคุณ "ได้รับ" กี่ % จากเงินที่ลงทุนไป ถ้าซื้อ AAPL ปี 2000 ตอนนี้ YOC อาจ 100%+ แล้ว</div>
+          </div>
+        </div>
+
+        <div class="callout callout-green">
+          <div class="font-bold text-green-300 mb-1">💡 YOC ใน App แสดงที่ไหน?</div>
+          <p class="text-xs text-gray-300">แสดงใน VI Journal หัวกลุ่มของแต่ละหุ้น เมื่อมีการบันทึก Dividend จะคำนวณ <code>totalDividend / (avgCost × shares) × 100</code> โดยอัตโนมัติ badge เขียว YOC X.X% จะปรากฏข้างชื่อหุ้น</p>
+        </div>
+
         <!-- Portfolio Reallocation -->
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6 mt-8">
           <h4 class="font-bold mb-2">📊 Portfolio Reallocation Logic</h4>
           <p class="text-xs text-gray-400 mb-3">ระบบเปรียบเทียบราคาปัจจุบัน (จาก Sync Prices) กับ Fair Value ที่คุณตั้งไว้ แล้วแนะนำว่าควรทำอะไร</p>
           <div class="space-y-2">

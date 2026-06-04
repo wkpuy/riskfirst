@@ -24,6 +24,8 @@ import {
   logDividend, closeDividendModal, confirmDividend,
   openSyncModal, closeSyncModal, toggleSyncTrade, confirmSync,
   openPyramidModal, closePyramidModal, previewPyramid, confirmPyramid,
+  moveToBreakeven,
+  openPartialCloseModal, closePartialCloseModal, updatePartialPnl, confirmPartialClose,
 } from './journal.js';
 
 // ─── Expose to global scope (required for HTML onclick attributes) ─────────────
@@ -57,6 +59,8 @@ Object.assign(window, {
   updateCTPnl, confirmCloseTrade, cancelTrade,
   saveFromRiskCalc, saveFromVIRisk, confirmQuickSave, closeQuickSave, saveFromScan,
   syncJournalPrices,
+  moveToBreakeven,
+  openPartialCloseModal, closePartialCloseModal, updatePartialPnl, confirmPartialClose,
   openPyramidModal, closePyramidModal, previewPyramid, confirmPyramid,
   logDividend, closeDividendModal, confirmDividend,
   openSyncModal, closeSyncModal, toggleSyncTrade, confirmSync,
