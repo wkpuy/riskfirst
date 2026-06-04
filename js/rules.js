@@ -82,3 +82,102 @@ export function calculateRisk(accountSize, riskPct, entryPrice, stopPrice, targe
     alerts
   };
 }
+
+/**
+ * Anti-Martingale Pyramid Risk Calculator
+ * Second lot must be smaller than first, and combined risk must stay within riskPct.
+ * @param {number} accountSize
+ * @param {number} riskPct
+ * @param {{ shares: number, buyPrice: number, stopPrice: number }} firstLot
+ * @param {number} nextEntry   — must be > firstLot.buyPrice (profit requirement)
+ * @param {number} nextStop    — new trailing stop for the full position
+ * @param {boolean} fractionalAllowed
+ */
+export function calculatePyramidRisk(accountSize, riskPct, firstLot, nextEntry, nextStop, fractionalAllowed) {
+  const errors = [];
+
+  if (nextEntry <= firstLot.buyPrice) {
+    errors.push('ห้ามซื้อเพิ่มเด็ดขาด! หุ้นไม้แรกยังไม่มีกำไร (nextEntry ต้องสูงกว่า buyPrice ไม้แรก)');
+    return { errors };
+  }
+  if (nextStop >= nextEntry) {
+    errors.push('Stop price ต้องต่ำกว่า Entry price');
+    return { errors };
+  }
+
+  // Pyramid ceiling: second lot ≤ 50% of first lot
+  const ceiling = fractionalAllowed
+    ? firstLot.shares * 0.5
+    : Math.floor(firstLot.shares * 0.5);
+
+  if (!fractionalAllowed && ceiling < 1) {
+    errors.push('จำนวนหุ้นในไม้แรกน้อยเกินไป — ต้องมีอย่างน้อย 2 shares จึงจะ Pyramid ได้');
+    return { errors };
+  }
+
+  const riskPerShare  = nextEntry - nextStop;
+  const sharesRaw     = (accountSize * (riskPct / 100)) / riskPerShare;
+  const nextShares    = fractionalAllowed
+    ? Math.min(sharesRaw, ceiling)
+    : Math.min(Math.floor(sharesRaw), ceiling);
+
+  if (!fractionalAllowed && nextShares < 1) {
+    errors.push('ทุนไม่พอสำหรับ 1 share ในไม้ที่สอง');
+    return { errors };
+  }
+
+  // Combined risk check
+  const totalShares    = firstLot.shares + nextShares;
+  const totalCost      = (firstLot.buyPrice * firstLot.shares) + (nextEntry * nextShares);
+  const newAvgCost     = totalCost / totalShares;
+  const combinedRisk   = (newAvgCost - nextStop) * totalShares;
+  const combinedRiskPct = (combinedRisk / accountSize) * 100;
+
+  if (combinedRiskPct > riskPct * 1.05) { // 5% tolerance buffer
+    errors.push(`ห้ามซื้อเพิ่ม! ต้นทุนเฉลี่ยจะลอยสูงเกินไป — Combined Risk ${combinedRiskPct.toFixed(1)}% เกิน ${riskPct}% ที่ตั้งไว้`);
+    return { errors };
+  }
+
+  return {
+    nextShares,
+    nextEntry,
+    nextStop,
+    newAvgCost,
+    totalShares,
+    combinedRisk,
+    combinedRiskPct,
+    positionValue: nextShares * nextEntry,
+    errors: [],
+    alerts: combinedRiskPct > riskPct * 0.9
+      ? [`Combined Risk ใกล้เพดาน: ${combinedRiskPct.toFixed(1)}%`]
+      : [],
+  };
+}
+
+/**
+ * Monthly Loss Cooldown checker
+ * Returns cooldown state based on net P&L of current calendar month.
+ * @param {Array}  closedTrades   — all journal entries of type 'trader'
+ * @param {number} capital        — current portfolio capital
+ * @param {number} thresholdPct   — default 8%
+ */
+export function checkMonthlyCooldown(closedTrades, capital, thresholdPct = 8) {
+  const now        = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  const monthTrades = closedTrades.filter(t =>
+    t.status === 'closed' &&
+    t.strategy !== 'dividend' &&
+    t.shares > 0 &&
+    t.createdAt >= monthStart
+  );
+
+  const monthlyPnL = monthTrades.reduce(
+    (sum, t) => sum + ((t.sellPrice - t.buyPrice) * t.shares), 0
+  );
+
+  const lossPct    = capital > 0 ? (Math.abs(Math.min(0, monthlyPnL)) / capital) * 100 : 0;
+  const inCooldown = monthlyPnL < 0 && lossPct >= thresholdPct;
+
+  return { inCooldown, monthlyPnL, lossPct, thresholdPct, tradesThisMonth: monthTrades.length };
+}

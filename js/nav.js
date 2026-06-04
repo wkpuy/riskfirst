@@ -23,6 +23,10 @@ export function switchTab(baseTabId) {
   if (isVI && baseTabId === 'risk') {
     document.dispatchEvent(new Event('vi-risk-shown'));
   }
+  // Refresh journal on every tab switch to ensure fresh data
+  if (baseTabId === 'journal') {
+    document.dispatchEvent(new Event('riskfirst:refresh'));
+  }
 }
 
 export function switchTraderTab(tabId) {

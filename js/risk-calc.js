@@ -23,7 +23,32 @@ function _readRiskInputs() {
 
 export function updateRiskCalc() {
   const display = document.getElementById('display-risk-pct');
-  const { accountSize, riskPct, entryPrice, stopPrice, targetPrice, fractional } = _readRiskInputs();
+  let { accountSize, riskPct, entryPrice, stopPrice, targetPrice, fractional } = _readRiskInputs();
+
+  // ── Monthly Cooldown: intercept riskPct if in drawdown ──
+  const cooldown   = state.cooldownStatus;
+  const badgeEl    = document.getElementById('cooldown-badge');
+  const FORCED_PCT = 0.25;
+  if (cooldown?.inCooldown) {
+    riskPct = FORCED_PCT;
+    if (badgeEl) {
+      badgeEl.classList.remove('hidden');
+      badgeEl.innerHTML = `<span class="text-base">🛡️</span><span><span class="font-black">Defensive Mode Active</span> — Monthly Loss ${cooldown.lossPct.toFixed(1)}% ≥ ${cooldown.thresholdPct}%<br><span class="font-normal opacity-80">บัญชีติดลิมิตขาดทุนรายเดือน ระบบบีบให้เล่น ${FORCED_PCT}% max ประคองชีวิตเท่านั้น</span></span>`;
+      // Force pill UI to show 0.5% (closest to 0.25) and grey out higher pills
+      document.querySelectorAll('.risk-pct-btn').forEach(btn => {
+        const v = parseFloat(btn.dataset.rpct);
+        btn.disabled = v > FORCED_PCT;
+        btn.classList.toggle('opacity-30', v > FORCED_PCT);
+        btn.classList.toggle('cursor-not-allowed', v > FORCED_PCT);
+      });
+    }
+  } else {
+    if (badgeEl) badgeEl.classList.add('hidden');
+    document.querySelectorAll('.risk-pct-btn').forEach(btn => {
+      btn.disabled = false;
+      btn.classList.remove('opacity-30', 'cursor-not-allowed');
+    });
+  }
 
   if (display) display.innerText = riskPct.toFixed(1) + '%';
 

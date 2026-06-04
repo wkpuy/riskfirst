@@ -1,7 +1,7 @@
 // sw.js — Production Service Worker for RiskFirst PWA
 // Strategy: Cache-first for app shell, Network-first for API calls
 
-const CACHE_VERSION = 'riskfirst-v1';
+const CACHE_VERSION = 'riskfirst-v2';
 
 // App shell — static assets to pre-cache on install
 const APP_SHELL = [
@@ -31,22 +31,31 @@ const APP_SHELL = [
 // External API origins — never cache these (always network)
 const API_ORIGINS = ['finnhub.io', 'api.twelvedata.com'];
 
-// ─── Install: pre-cache app shell ────────────────────────────────────────────
+// ─── Install: pre-cache app shell bypassing HTTP cache ───────────────────────
 
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_VERSION).then(cache => cache.addAll(APP_SHELL))
+    caches.open(CACHE_VERSION).then(cache =>
+      // cache: 'reload' bypasses browser HTTP cache → always gets latest files
+      Promise.all(
+        APP_SHELL.map(url =>
+          fetch(new Request(url, { cache: 'reload' }))
+            .then(res => res.ok ? cache.put(url, res) : null)
+            .catch(() => null)
+        )
+      )
+    )
   );
 });
 
-// ─── Activate: delete old cache versions ─────────────────────────────────────
+// ─── Activate: delete old cache versions, claim all clients ─────────────────
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -67,7 +76,23 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 3. App shell (same origin) → Cache-first, update cache in background
+  // 3. JS files → network-first with cache: 'reload' to bypass HTTP cache
+  if (url.pathname.endsWith('.js')) {
+    event.respondWith(
+      fetch(new Request(event.request, { cache: 'reload' }))
+        .then(response => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_VERSION).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // 4. Other app shell → Cache-first, update cache in background
   event.respondWith(
     caches.match(event.request).then(cached => {
       const networkFetch = fetch(event.request).then(response => {
@@ -78,7 +103,6 @@ self.addEventListener('fetch', event => {
         return response;
       }).catch(() => null);
 
-      // Return cached immediately; if not in cache wait for network
       return cached || networkFetch;
     })
   );

@@ -9,6 +9,7 @@ import { showToast, showConfirm, openModal, closeModal, escapeHtml } from './ui.
 import { updateRiskCalc, updateVIRiskCalc } from './risk-calc.js';
 import { renderReallocation } from './portfolio.js';
 import { fetchQuote } from './api.js';
+import { calculatePyramidRisk, checkMonthlyCooldown } from './rules.js';
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,12 @@ export async function loadDashboard() {
   _renderStats(entries);
   _renderJournal(entries,   'journal-list',    false);
   _renderJournal(viEntries, 'vi-journal-list', true);
+
+  // Update monthly cooldown status (used by Risk Calculator)
+  if (state.traderPortfolio) {
+    state.cooldownStatus = checkMonthlyCooldown(entries, state.traderPortfolio.capital);
+    updateRiskCalc(); // re-render risk calc badge if visible
+  }
 }
 
 // ─── Sync Journal Prices ──────────────────────────────────────────────────────
@@ -93,6 +100,118 @@ export async function syncJournalPrices() {
     state.journalPricesSyncing = false;
     _setBtnSyncing(false);
   }
+}
+
+// ─── Pyramid Modal ────────────────────────────────────────────────────────────
+
+export function openPyramidModal(id, symbol, buyPrice, shares, stopPrice) {
+  state.pyramidTradeId  = id;
+  state.pyramidFirstLot = { shares, buyPrice, stopPrice, symbol };
+
+  document.getElementById('pyramid-symbol').textContent = symbol;
+  document.getElementById('pyramid-first-info').innerHTML = `
+    <div class="flex justify-between"><span>ไม้แรก Buy</span><span class="font-bold text-white">$${parseFloat(buyPrice).toFixed(2)}</span></div>
+    <div class="flex justify-between"><span>Shares</span><span class="font-bold text-white">${shares}</span></div>
+    <div class="flex justify-between"><span>Stop ปัจจุบัน</span><span class="font-bold text-red-400">$${parseFloat(stopPrice || 0).toFixed(2)}</span></div>
+    <div class="flex justify-between"><span>Ceiling ไม้ 2</span><span class="font-bold text-yellow-400">≤ ${Math.floor(shares * 0.5)} shares</span></div>`;
+  document.getElementById('pyramid-next-entry').value = '';
+  document.getElementById('pyramid-next-stop').value  = '';
+  document.getElementById('pyramid-preview').innerHTML = '<div class="text-gray-500 text-center">ใส่ราคาเพื่อดูผล</div>';
+  document.getElementById('pyramid-error').classList.add('hidden');
+
+  openModal('pyramid-modal', 'pyramid-sheet');
+}
+
+export function closePyramidModal() {
+  closeModal('pyramid-modal', 'pyramid-sheet');
+  state.pyramidTradeId  = null;
+  state.pyramidFirstLot = null;
+}
+
+export function previewPyramid() {
+  const firstLot   = state.pyramidFirstLot;
+  if (!firstLot) return;
+
+  const port       = state.traderPortfolio;
+  const accountSize = port?.capital || 0;
+  const riskPct    = parseFloat(document.getElementById('calc-risk-pct')?.value) || 1;
+  const nextEntry  = parseFloat(document.getElementById('pyramid-next-entry')?.value);
+  const nextStop   = parseFloat(document.getElementById('pyramid-next-stop')?.value);
+  const fractional = document.getElementById('calc-frac')?.checked ?? false;
+
+  const errEl  = document.getElementById('pyramid-error');
+  const prevEl = document.getElementById('pyramid-preview');
+
+  if (!nextEntry || !nextStop || nextEntry <= 0 || nextStop <= 0) {
+    prevEl.innerHTML = '<div class="text-gray-500 text-center">ใส่ราคาเพื่อดูผล</div>';
+    errEl.classList.add('hidden');
+    return;
+  }
+
+  const res = calculatePyramidRisk(accountSize, riskPct, firstLot, nextEntry, nextStop, fractional);
+
+  if (res.errors?.length) {
+    errEl.textContent = res.errors[0];
+    errEl.classList.remove('hidden');
+    prevEl.innerHTML = '';
+    return;
+  }
+
+  errEl.classList.add('hidden');
+  const isAlert = res.alerts?.length;
+  prevEl.innerHTML = `
+    <div class="grid grid-cols-2 gap-2 text-xs">
+      <div class="bg-white/5 rounded-lg p-2"><div class="text-gray-400 mb-0.5">ซื้อเพิ่ม</div><div class="font-black text-white text-lg">${res.nextShares} shares</div></div>
+      <div class="bg-white/5 rounded-lg p-2"><div class="text-gray-400 mb-0.5">Stop ใหม่</div><div class="font-black text-red-400">$${res.nextStop.toFixed(2)}</div></div>
+      <div class="bg-white/5 rounded-lg p-2"><div class="text-gray-400 mb-0.5">Avg Cost ใหม่</div><div class="font-black text-yellow-400">$${res.newAvgCost.toFixed(2)}</div></div>
+      <div class="bg-white/5 rounded-lg p-2"><div class="text-gray-400 mb-0.5">Combined Risk</div><div class="font-black ${isAlert ? 'text-orange-400' : 'text-green-400'}">${res.combinedRiskPct.toFixed(2)}%</div></div>
+    </div>
+    ${isAlert ? `<div class="mt-2 text-[10px] text-orange-400 text-center">⚠️ ${res.alerts[0]}</div>` : ''}`;
+}
+
+export async function confirmPyramid() {
+  const firstLot   = state.pyramidFirstLot;
+  const id         = state.pyramidTradeId;
+  if (!firstLot || !id) return;
+
+  const port       = state.traderPortfolio;
+  const accountSize = port?.capital || 0;
+  const riskPct    = parseFloat(document.getElementById('calc-risk-pct')?.value) || 1;
+  const nextEntry  = parseFloat(document.getElementById('pyramid-next-entry')?.value);
+  const nextStop   = parseFloat(document.getElementById('pyramid-next-stop')?.value);
+  const fractional = document.getElementById('calc-frac')?.checked ?? false;
+
+  const res = calculatePyramidRisk(accountSize, riskPct, firstLot, nextEntry, nextStop, fractional);
+  if (res.errors?.length) { showToast(res.errors[0], 'warning'); return; }
+
+  // Update original trade's stop to new trailing stop
+  await updateJournalEntry(id, { stopPrice: res.nextStop });
+
+  // Add new lot as separate journal entry (preserves audit trail)
+  await addJournalEntry({
+    symbol:      firstLot.symbol,
+    type:        'trader',
+    status:      'open',
+    buyPrice:    res.nextEntry,
+    sellPrice:   null,
+    shares:      res.nextShares,
+    stopPrice:   res.nextStop,
+    targetPrice: null,
+    strategy:    'pyramid',
+    chartLink:   '',
+    accountSize,
+    riskPct,
+    plannedLoss: res.combinedRisk,
+    plannedWin:  null,
+    rrRatio:     null,
+    targetLabel: 'Pyramid Lot 2',
+    isApplied:   true,
+    createdAt:   Date.now(),
+  });
+
+  closePyramidModal();
+  showToast(`บันทึก Pyramid ${firstLot.symbol} +${res.nextShares} shares แล้ว ✅`, 'success');
+  await loadDashboard();
 }
 
 function _setBtnSyncing(loading) {
@@ -710,10 +829,26 @@ function _renderTraderJournal(el, entries) {
             </div>
             <button onclick="deleteTrade(${t.id}, 'trader')" class="text-xs text-gray-600 hover:text-red-400 ml-2 shrink-0">🗑️</button>
           </div>
-          <button onclick="openCloseTradeModal(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares}, ${t.targetPrice || 'null'})"
-                  class="w-full py-2 rounded-lg text-sm font-bold border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 transition-colors">
-            ปิดไม้ →
-          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="openPyramidModal(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares}, ${t.stopPrice || 'null'})"
+                    class="py-2 rounded-lg text-xs font-bold border border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors">
+              ➕ Pyramid
+            </button>
+            <button onclick="openCloseTradeModal(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares}, ${t.targetPrice || 'null'})"
+                    class="py-2 rounded-lg text-sm font-bold border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 transition-colors">
+              ปิดไม้ →
+            </button>
+          </div>
+        </div>`;
+    } else if (t.status === 'expired') {
+      el.innerHTML += `
+        <div class="bg-[var(--card-dark)] border border-orange-500/30 rounded-xl p-3 flex justify-between items-center mb-2 opacity-60">
+          <div>
+            <div class="font-bold flex items-center gap-2 text-white">${t.symbol} <span class="text-[9px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/20">EXPIRED</span></div>
+            <div class="text-[10px] text-gray-400">Order ค้าง ${Math.round((Date.now() - t.createdAt) / 3600_000)}h · Buy $${t.buyPrice} · ${t.shares} shares</div>
+            <div class="text-[10px] text-orange-400 mt-0.5">⚠️ ยกเลิก order ที่ broker ด้วย</div>
+          </div>
+          <button onclick="deleteTrade(${t.id}, 'trader')" class="text-xs text-gray-600 hover:text-red-400">🗑️</button>
         </div>`;
     } else {
       const rrBadge = realRR !== null

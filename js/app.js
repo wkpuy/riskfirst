@@ -23,6 +23,7 @@ import {
   saveFromRiskCalc, saveFromVIRisk, confirmQuickSave, closeQuickSave, saveFromScan,
   logDividend, closeDividendModal, confirmDividend,
   openSyncModal, closeSyncModal, toggleSyncTrade, confirmSync,
+  openPyramidModal, closePyramidModal, previewPyramid, confirmPyramid,
 } from './journal.js';
 
 // ─── Expose to global scope (required for HTML onclick attributes) ─────────────
@@ -56,6 +57,7 @@ Object.assign(window, {
   updateCTPnl, confirmCloseTrade, cancelTrade,
   saveFromRiskCalc, saveFromVIRisk, confirmQuickSave, closeQuickSave, saveFromScan,
   syncJournalPrices,
+  openPyramidModal, closePyramidModal, previewPyramid, confirmPyramid,
   logDividend, closeDividendModal, confirmDividend,
   openSyncModal, closeSyncModal, toggleSyncTrade, confirmSync,
 
@@ -205,4 +207,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   const cachedRegime = JSON.parse(localStorage.getItem('regimeCache') || 'null');
   if (cachedRegime) renderRegimeBanner(cachedRegime);
   updateMarketRegime();
+
+  // ── Order TTL: auto-expire open Trader orders older than 72 hours ──
+  try {
+    const { getJournalEntries, updateJournalEntry } = await import('./db.js');
+    const allEntries = await getJournalEntries('trader');
+    const TTL_MS     = 72 * 60 * 60 * 1000;
+    const stale      = allEntries.filter(t =>
+      t.status === 'open' && t.strategy !== 'pyramid' && (Date.now() - t.createdAt) > TTL_MS
+    );
+    if (stale.length) {
+      await Promise.all(stale.map(t => updateJournalEntry(t.id, { status: 'expired' })));
+      showToast(
+        `⚠️ ${stale.length} คำสั่งซื้อค้างเกิน 3 วัน → ตั้งเป็น Expired แล้ว — ตรวจสอบและยกเลิก order ที่ broker ด้วย`,
+        'warning'
+      );
+      await loadDashboard();
+    }
+  } catch (e) { console.warn('Order TTL check failed:', e); }
 });

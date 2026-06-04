@@ -180,6 +180,9 @@
             </div>
           </div>
 
+          <!-- Cooldown Badge (hidden by default, shown by JS when monthly loss ≥ threshold) -->
+          <div id="cooldown-badge" class="hidden flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs border border-red-500/30 text-red-300" style="background:rgba(239,68,68,0.1)"></div>
+
           <!-- Row 2: Entry | Stop -->
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -828,6 +831,46 @@
       </div>
       <button onclick="confirmCloseTrade()" class="w-full btn-primary py-3.5 text-base font-bold mb-2">✅ ขายได้แล้ว — ปิดไม้</button>
       <button onclick="cancelTrade()" class="w-full py-3 rounded-xl text-sm font-bold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">❌ ไม่ได้ซื้อ / ลบทิ้ง</button>
+    </div>
+  </div>
+
+  <!-- ─── Pyramid Modal ─────────────────────────────── -->
+  <div id="pyramid-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex flex-col justify-end transition-opacity opacity-0">
+    <div id="pyramid-sheet" class="bg-[var(--card-dark)] w-full rounded-t-3xl border-t border-[var(--border-dark)] p-5 transform translate-y-full transition-transform">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-lg font-bold">➕ Pyramid — <span id="pyramid-symbol" class="text-yellow-400"></span></h3>
+          <p class="text-[10px] text-gray-400 mt-0.5">Anti-Martingale · ไม้ 2 ต้องเล็กกว่าไม้แรกเสมอ</p>
+        </div>
+        <button onclick="closePyramidModal()" class="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center font-bold text-gray-400 hover:text-white">✕</button>
+      </div>
+
+      <!-- First lot info -->
+      <div id="pyramid-first-info" class="bg-white/5 rounded-xl p-3 mb-4 text-xs text-gray-400 space-y-1 border border-white/5"></div>
+
+      <!-- Inputs -->
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="text-xs text-gray-400 font-semibold mb-1.5 block">Entry ไม้ 2 ($)</label>
+          <input type="number" id="pyramid-next-entry" placeholder="0.00" oninput="previewPyramid()"
+                 class="input-elegant w-full font-mono text-white">
+        </div>
+        <div>
+          <label class="text-xs text-gray-400 font-semibold mb-1.5 block">Stop ใหม่ ($)</label>
+          <input type="number" id="pyramid-next-stop" placeholder="0.00" oninput="previewPyramid()"
+                 class="input-elegant w-full font-mono text-red-400 border-red-500/30">
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div id="pyramid-preview" class="rounded-xl p-3 mb-3 bg-white/5 border border-white/10 min-h-[60px]">
+        <div class="text-gray-500 text-center text-xs">ใส่ราคาเพื่อดูผล</div>
+      </div>
+
+      <!-- Error -->
+      <div id="pyramid-error" class="hidden rounded-xl px-3 py-2.5 mb-3 text-xs font-bold text-red-400 border border-red-500/30 bg-red-500/10"></div>
+
+      <button onclick="confirmPyramid()" class="w-full btn-primary">➕ บันทึกไม้ที่ 2</button>
     </div>
   </div>
 

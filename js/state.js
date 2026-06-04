@@ -31,4 +31,11 @@ export const state = {
   // Journal live prices: { SYMBOL: currentPrice }
   journalPrices: {},
   journalPricesSyncing: false,
+
+  // Monthly cooldown status (updated in loadDashboard)
+  cooldownStatus: null,
+
+  // Pyramid modal context
+  pyramidTradeId:  null,
+  pyramidFirstLot: null,   // { shares, buyPrice, stopPrice, symbol }
 };
