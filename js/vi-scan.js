@@ -2,7 +2,7 @@
 
 import { fetchQuote, fetchProfile, fetchMetric } from './api.js';
 import { state } from './state.js';
-import { showToast } from './ui.js';
+import { showToast, escapeHtml } from './ui.js';
 
 export async function scanVI() {
   const apiKey = localStorage.getItem('finnhubApiKey');
@@ -11,9 +11,10 @@ export async function scanVI() {
   const symbol = document.getElementById('vi-scan-input')?.value.trim().toUpperCase();
   if (!symbol) { showToast('กรุณาพิมพ์ ticker ก่อน', 'warning'); return; }
 
+  const safeSymbol = escapeHtml(symbol);
   const area = document.getElementById('vi-scan-result-area');
   area.innerHTML = `<div class="card py-10 text-center" style="background:#fff;border-color:#e5e7eb">
-    <p class="text-gray-400 text-sm animate-pulse">กำลังดึงข้อมูล <b class="text-gray-700">${symbol}</b>...</p></div>`;
+    <p class="text-gray-400 text-sm animate-pulse">กำลังดึงข้อมูล <b class="text-gray-700">${safeSymbol}</b>...</p></div>`;
 
   try {
     const [quote, profile, metricData] = await Promise.all([
@@ -24,7 +25,7 @@ export async function scanVI() {
 
     if (!quote.c || quote.c === 0) {
       area.innerHTML = `<div class="card py-10 text-center" style="background:#fff">
-        <p class="text-red-400 font-bold">ไม่พบ ticker "${symbol}"</p></div>`;
+        <p class="text-red-400 font-bold">ไม่พบ ticker "${safeSymbol}"</p></div>`;
       return;
     }
 
@@ -137,6 +138,7 @@ function _buildChecks({ pe, pb, roe, roa, revGrow, epsGrow, beta, pegRatio, isGr
 }
 
 function _renderVICard(symbol, quote, profile, metricData) {
+  const safeSymbol = escapeHtml(symbol);
   const m         = metricData.metric || {};
   const price     = quote.c;
   const change    = price - quote.pc;
@@ -209,9 +211,9 @@ function _renderVICard(symbol, quote, profile, metricData) {
 
       <div class="flex justify-between items-start mb-3 relative z-10">
         <div>
-          <h2 class="text-3xl font-extrabold tracking-tight" style="color:#111">${symbol}</h2>
+          <h2 class="text-3xl font-extrabold tracking-tight" style="color:#111">${safeSymbol}</h2>
           <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
-            <span class="text-xs" style="color:#6b7280">${profile.name || symbol}${mktCap ? ` · MCap ${fmtCap(mktCap)}` : ''}</span>
+            <span class="text-xs" style="color:#6b7280">${escapeHtml(profile.name) || safeSymbol}${mktCap ? ` · MCap ${fmtCap(mktCap)}` : ''}</span>
             <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="${isGrowth ? 'background:#fef3c7;color:#92400e' : 'background:#ede9fe;color:#5b21b6'}">${stockMode}</span>
           </div>
         </div>
@@ -305,7 +307,7 @@ function _renderVICard(symbol, quote, profile, metricData) {
               class="w-full py-3.5 rounded-xl font-bold text-sm transition-colors mb-2" style="background:#1d4ed8;color:#fff">
         ⚡ คำนวณ Position Size → Risk/Port
       </button>
-      <button onclick="addWatchlistDirect('${symbol}', 'vi')"
+      <button onclick="addWatchlistDirect('${safeSymbol}', 'vi')"
               class="w-full py-3 rounded-xl font-bold text-sm border transition-colors" style="background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe">
         ⭐ เพิ่มใน VI Watchlist
       </button>

@@ -5,8 +5,7 @@ import { fetchQuote } from './api.js';
 import { getCached, setCache } from './cache.js';
 import { CACHE_PREFIX_SYNC_P } from './config.js';
 import { state } from './state.js';
-import { showToast } from './ui.js';
-import { openModal, closeModal } from './ui.js';
+import { showToast, openModal, closeModal, escapeHtml } from './ui.js';
 
 // ─── Capital Modal ────────────────────────────────────────────────────────────
 
@@ -59,17 +58,16 @@ export async function syncPrices() {
   const syncBtn = document.querySelector('button[onclick="syncPrices()"]');
   if (syncBtn) { syncBtn.innerHTML = '<span>⏳</span> Syncing...'; syncBtn.disabled = true; }
 
-  const results = await Promise.all(
-    [...openSymbols].map(async sym => {
-      const cached = getCached(`${CACHE_PREFIX_SYNC_P}${sym}`, 15 * 60 * 1000);
-      if (cached?.c) return { symbol: sym, price: cached.c };
-      try {
-        const data = await fetchQuote(sym, apiKey, 15 * 60 * 1000);
-        if (data?.c) { setCache(`${CACHE_PREFIX_SYNC_P}${sym}`, data); return { symbol: sym, price: data.c }; }
-      } catch {}
-      return null;
-    })
-  );
+  const results = [];
+  for (const sym of openSymbols) {
+    const cached = getCached(`${CACHE_PREFIX_SYNC_P}${sym}`, 15 * 60 * 1000);
+    if (cached?.c) { results.push({ symbol: sym, price: cached.c }); continue; }
+    try {
+      const data = await fetchQuote(sym, apiKey, 15 * 60 * 1000);
+      if (data?.c) { setCache(`${CACHE_PREFIX_SYNC_P}${sym}`, data); results.push({ symbol: sym, price: data.c }); }
+    } catch {}
+    await new Promise(r => setTimeout(r, 100)); // 100ms delay to prevent 429
+  }
 
   const priceCache = JSON.parse(localStorage.getItem('priceCache') || '{}');
   let count = 0;
@@ -119,6 +117,7 @@ export async function renderReallocation() {
   });
 
   listEl.innerHTML = Object.keys(holdings).map(symbol => {
+    const safeSymbol = escapeHtml(symbol);
     const h         = holdings[symbol];
     const avgBuy    = h.totalShares > 0 ? h.totalCost / h.totalShares : (h.trades[0]?.buyPrice || 0);
     const curPrice  = priceCache[symbol] || null;
@@ -148,7 +147,7 @@ export async function renderReallocation() {
       <div class="bg-white border border-gray-200 rounded-2xl p-4 mb-3 shadow-sm">
         <div class="flex justify-between items-start mb-3">
           <div>
-            <div class="font-black text-xl text-gray-800">${symbol}</div>
+            <div class="font-black text-xl text-gray-800">${safeSymbol}</div>
             <div class="text-[10px] text-gray-400 mt-0.5">
               Avg Buy $${avgBuy.toFixed(2)}
               ${h.totalShares > 0 ? ` · ${h.totalShares} shares` : ''}
@@ -179,11 +178,11 @@ export async function renderReallocation() {
         </div>` : ''}
 
         <div class="flex gap-2">
-          <button onclick="document.getElementById('vi-scan-input').value='${symbol}'; switchTab('scan'); scanVI()"
+          <button onclick="document.getElementById('vi-scan-input').value='${safeSymbol}'; switchTab('scan'); scanVI()"
                   class="flex-1 py-2 rounded-xl text-xs font-bold border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">
             🔄 Scan ใหม่
           </button>
-          <button onclick="openCloseVITrade([${h.trades.map(t => t.id).join(',')}], '${symbol}', ${avgBuy.toFixed(2)}, ${h.totalShares}, ${fairValue || 'null'})"
+          <button onclick="openCloseVITrade([${h.trades.map(t => t.id).join(',')}], '${safeSymbol}', ${avgBuy.toFixed(2)}, ${h.totalShares}, ${fairValue || 'null'})"
                   class="flex-1 py-2 rounded-xl text-xs font-bold border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
             ขายทิ้ง →
           </button>

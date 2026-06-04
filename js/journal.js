@@ -5,7 +5,7 @@ import {
   updateJournalEntry, deleteJournalEntry,
 } from './db.js';
 import { state } from './state.js';
-import { showToast, showConfirm, openModal, closeModal } from './ui.js';
+import { showToast, showConfirm, openModal, closeModal, escapeHtml } from './ui.js';
 import { updateRiskCalc, updateVIRiskCalc } from './risk-calc.js';
 import { renderReallocation } from './portfolio.js';
 import { fetchQuote } from './api.js';
@@ -65,9 +65,16 @@ export async function syncJournalPrices() {
 
   try {
     // fetch with short TTL (1 min) to always get fresh prices on manual sync
-    const results = await Promise.allSettled(
-      openSymbols.map(sym => fetchQuote(sym, apiKey, 60_000).then(q => ({ sym, price: q?.c || null })))
-    );
+    const results = [];
+    for (const sym of openSymbols) {
+      try {
+        const q = await fetchQuote(sym, apiKey, 60_000);
+        results.push({ status: 'fulfilled', value: { sym, price: q?.c || null } });
+      } catch (e) {
+        results.push({ status: 'rejected', reason: e });
+      }
+      await new Promise(r => setTimeout(r, 100)); // 100ms delay to prevent 429
+    }
 
     // BUG-M2: update both state.journalPrices AND priceCache (used by Portfolio Reallocation)
     const priceCache = JSON.parse(localStorage.getItem('priceCache') || '{}');
@@ -273,7 +280,7 @@ export function openCloseVITrade(idOrIds, symbol, buyPrice, shares, targetPrice)
   const sellInput = document.getElementById('ct-sell-price');
   sellInput.value              = tp ? tp.toFixed(2) : '';
   sellInput.dataset.buyPrice   = buyPrice;
-  sellInput.dataset.shares     = shares > 0 ? shares : 1;
+  sellInput.dataset.shares     = shares;
   sellInput.dataset.viMode     = 'true';
 
   _resetCTPnl();
@@ -313,20 +320,22 @@ export async function confirmCloseTrade() {
 
   const buy    = parseFloat(sellInput.dataset.buyPrice);
   const shares = parseFloat(sellInput.dataset.shares);
-  const pnl    = (sell - buy) * shares;
+  const pnl    = shares > 0 ? (sell - buy) * shares : 0;
   const isVI   = sellInput.dataset.viMode === 'true';
 
   // BUG-C1: close all trade IDs (multi-lot VI positions have multiple entries)
   const idsToClose = state.closeTradeAllIds?.length ? state.closeTradeAllIds : [state.closeTradeId];
   await Promise.all(idsToClose.map(id => updateJournalEntry(id, { status: 'closed', sellPrice: sell })));
 
-  const port = isVI
-    ? (state.viPortfolio   || await getPortfolio('vi'))
-    : (state.traderPortfolio || await getPortfolio('trader'));
-  await updatePortfolio({ capital: port.capital + pnl, initialCapital: port.initialCapital }, isVI ? 'vi' : 'trader');
+  if (shares > 0) {
+    const port = isVI
+      ? (state.viPortfolio   || await getPortfolio('vi'))
+      : (state.traderPortfolio || await getPortfolio('trader'));
+    await updatePortfolio({ capital: port.capital + pnl, initialCapital: port.initialCapital }, isVI ? 'vi' : 'trader');
+  }
 
   closeCloseTradeModal();
-  showToast(`ปิดไม้แล้ว ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} → อัปเดตพอร์ตแล้ว`, pnl >= 0 ? 'success' : 'warning');
+  showToast(`ปิดไม้แล้ว ${shares > 0 ? (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) : 'Tracking closed'} → อัปเดตพอร์ตแล้ว`, shares > 0 ? (pnl >= 0 ? 'success' : 'warning') : 'info');
   await loadDashboard();
 }
 
@@ -489,12 +498,7 @@ export async function confirmDividend() {
   const sym    = document.getElementById('div-symbol')?.value;
   if (!amount || amount <= 0) { showToast('กรุณาใส่จำนวนเงิน', 'warning'); return; }
 
-  if (state.viPortfolio) {
-    await updatePortfolio({
-      capital: state.viPortfolio.capital + amount,
-      initialCapital: state.viPortfolio.initialCapital + amount,
-    }, 'vi');
-  }
+  // Removed double counting: initialCapital will be properly added via runCapitalSync
   await addJournalEntry({
     symbol: sym || 'DIV', type: 'vi', status: 'open',
     buyPrice: 0, sellPrice: amount, shares: 0,
@@ -505,7 +509,7 @@ export async function confirmDividend() {
 
   closeDividendModal();
   showToast(`บันทึกปันผล${sym ? ` ${sym}` : ''} +$${amount.toFixed(2)} แล้ว`, 'success');
-  await loadDashboard();
+  await runCapitalSync('vi');
 }
 
 // ─── Sync Modal ───────────────────────────────────────────────────────────────
@@ -645,13 +649,17 @@ function _renderTraderJournal(el, entries) {
       const risk = t.buyPrice - t.stopPrice;
       if (risk > 0) realRR = (t.sellPrice - t.buyPrice) / risk;
     }
+    const safeSymbol = escapeHtml(t.symbol);
+    const safeStrategy = escapeHtml(t.strategy);
+    const safeTargetLabel = escapeHtml(t.targetLabel);
+    const safeChartLink = escapeHtml(t.chartLink);
     const extras = [
-      t.strategy  ? `<span class="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20">${t.strategy}</span>` : '',
-      t.chartLink ? `<a href="${t.chartLink}" target="_blank" class="text-xs hover:scale-110 transition-transform">📈</a>` : '',
+      t.strategy  ? `<span class="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20">${safeStrategy}</span>` : '',
+      t.chartLink ? `<a href="${safeChartLink}" target="_blank" class="text-xs hover:scale-110 transition-transform">📈</a>` : '',
     ].join('');
 
     if (t.status === 'open') {
-      const tlabel    = t.targetLabel ? `<span class="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20">Target: ${t.targetLabel}</span>` : '';
+      const tlabel    = t.targetLabel ? `<span class="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20">Target: ${safeTargetLabel}</span>` : '';
       const riskBadge = t.riskPct     ? `<span class="text-[9px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">Risk ${t.riskPct}%</span>` : '';
 
       const cur = state.journalPrices[t.symbol];
@@ -682,7 +690,7 @@ function _renderTraderJournal(el, entries) {
           <div class="flex justify-between items-start mb-2">
             <div class="flex-1 min-w-0">
               <div class="font-bold flex items-center gap-1.5 flex-wrap text-white mb-1">
-                ${t.symbol} <span class="text-[9px] bg-blue-500/20 text-blue-500 px-1.5 py-0.5 rounded border border-blue-500/20">OPEN</span>
+                ${safeSymbol} <span class="text-[9px] bg-blue-500/20 text-blue-500 px-1.5 py-0.5 rounded border border-blue-500/20">OPEN</span>
                 ${tlabel} ${riskBadge} ${extras}
               </div>
               <div class="text-[10px] text-gray-400">
@@ -702,7 +710,7 @@ function _renderTraderJournal(el, entries) {
             </div>
             <button onclick="deleteTrade(${t.id}, 'trader')" class="text-xs text-gray-600 hover:text-red-400 ml-2 shrink-0">🗑️</button>
           </div>
-          <button onclick="openCloseTradeModal(${t.id}, '${t.symbol}', ${t.buyPrice}, ${t.shares}, ${t.targetPrice || 'null'})"
+          <button onclick="openCloseTradeModal(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares}, ${t.targetPrice || 'null'})"
                   class="w-full py-2 rounded-lg text-sm font-bold border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 transition-colors">
             ปิดไม้ →
           </button>
@@ -714,7 +722,7 @@ function _renderTraderJournal(el, entries) {
       el.innerHTML += `
         <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-xl p-3 flex justify-between items-center mb-2">
           <div>
-            <div class="font-bold flex items-center gap-2 text-white">${t.symbol} ${rrBadge} ${extras}</div>
+            <div class="font-bold flex items-center gap-2 text-white">${safeSymbol} ${rrBadge} ${extras}</div>
             <div class="text-[10px] text-gray-400">Buy $${t.buyPrice} → Sell $${t.sellPrice} · ${t.shares} shares</div>
           </div>
           <div class="text-right flex items-center gap-2">
@@ -755,6 +763,7 @@ function _renderVIJournal(el, entries) {
   Object.keys(grouped).forEach(sym => {
     const g        = grouped[sym];
     const avgCost  = g.shares > 0 ? g.cost / g.shares : (g.trades[0]?.buyPrice || 0);
+    const safeSymbol = escapeHtml(sym);
 
     const cur = state.journalPrices[sym];
     let livePnlHeader = '';
@@ -781,7 +790,7 @@ function _renderVIJournal(el, entries) {
       <div class="bg-white border border-gray-200 rounded-xl mb-3 shadow-sm overflow-hidden">
         <div class="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
           <div class="font-black text-gray-800 text-lg">
-            ${sym} <span class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full ml-1">Avg $${avgCost.toFixed(2)}</span>
+            ${safeSymbol} <span class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full ml-1">Avg $${avgCost.toFixed(2)}</span>
           </div>
           <div class="text-xs font-bold text-gray-500">${g.shares > 0 ? `${g.shares} Shares` : 'Tracking Only'}</div>
         </div>
@@ -808,7 +817,7 @@ function _renderVIJournal(el, entries) {
                 <button onclick="deleteTrade(${t.id}, 'vi')" class="text-gray-400 hover:text-red-500">🗑️</button>
               </div>
               ${meta}
-              <button onclick="openCloseVITrade(${t.id}, '${t.symbol}', ${t.buyPrice}, ${t.shares || 0}, ${t.targetPrice || 'null'})"
+              <button onclick="openCloseVITrade(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares || 0}, ${t.targetPrice || 'null'})"
                       class="w-full mt-2 py-1.5 rounded-lg text-xs font-bold border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">ขายทิ้ง →</button>
             </div>`;
           }).join('')}
@@ -823,7 +832,7 @@ function _renderVIJournal(el, entries) {
     dividends.sort((a, b) => b.createdAt - a.createdAt).forEach(t => {
       el.innerHTML += `
         <div class="bg-green-50 border border-green-100 rounded-xl p-3 flex justify-between items-center mb-2">
-          <div><div class="font-bold text-green-800">${t.symbol !== 'DIV' ? t.symbol : '—'}</div><div class="text-[10px] text-green-600">${dt(t.createdAt)}</div></div>
+          <div><div class="font-bold text-green-800">${t.symbol !== 'DIV' ? escapeHtml(t.symbol) : '—'}</div><div class="text-[10px] text-green-600">${dt(t.createdAt)}</div></div>
           <div class="flex items-center gap-3">
             <div class="font-black text-green-600">+$${(t.sellPrice || 0).toFixed(2)}</div>
             <button onclick="deleteTrade(${t.id}, 'vi')" class="text-xs text-gray-400 hover:text-red-500">🗑️</button>
@@ -841,7 +850,7 @@ function _renderVIJournal(el, entries) {
       el.innerHTML += `
         <div class="bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center mb-2">
           <div>
-            <div class="font-bold text-gray-800">${t.symbol}</div>
+            <div class="font-bold text-gray-800">${escapeHtml(t.symbol)}</div>
             <div class="text-[10px] text-gray-500">Buy $${t.buyPrice} → Sell $${t.sellPrice}${t.shares > 0 ? ` · ${t.shares} shares` : ''} · ${dt(t.createdAt)}</div>
           </div>
           <div class="text-right flex items-center gap-2">

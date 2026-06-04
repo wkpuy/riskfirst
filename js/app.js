@@ -2,19 +2,19 @@
 // Initialises the app, wires input event listeners, and exposes public
 // functions to window so HTML onclick attributes can reach them.
 
-import { initDB, exportAllData, importAllData } from './db.js?v=c';
-import { showToast, showConfirm } from './ui.js?v=c';
+import { initDB, exportAllData, importAllData } from './db.js';
+import { showToast, showConfirm } from './ui.js';
 import {
   switchModule, switchTab, switchTraderTab,
   openGlobalLogicModal, closeGlobalLogicModal,
   openStockLogicModal, closeStockLogicModal, copyPrompt,
-} from './nav.js?v=c';
-import { updateMarketRegime, renderRegimeBanner } from './regime.js?v=c';
-import { loadWatchlist, addWatchlist, removeWatchlist, addWatchlistDirect } from './watchlist.js?v=c';
-import { openCapitalModal, closeCapitalModal, saveCapital, syncPrices, renderReallocation } from './portfolio.js?v=c';
-import { updateRiskCalc, updateVIRiskCalc, applyToRiskCalc, applyToVIRisk } from './risk-calc.js?v=c';
-import { scanStock, scanAllWatchlist, selectTarget } from './trader-scan.js?v=c';
-import { scanVI, calcMOSScan } from './vi-scan.js?v=c';
+} from './nav.js';
+import { updateMarketRegime, renderRegimeBanner } from './regime.js';
+import { loadWatchlist, addWatchlist, removeWatchlist, addWatchlistDirect } from './watchlist.js';
+import { openCapitalModal, closeCapitalModal, saveCapital, syncPrices, renderReallocation } from './portfolio.js';
+import { updateRiskCalc, updateVIRiskCalc, applyToRiskCalc, applyToVIRisk } from './risk-calc.js';
+import { scanStock, scanAllWatchlist, selectTarget } from './trader-scan.js';
+import { scanVI, calcMOSScan } from './vi-scan.js';
 import {
   loadDashboard, setTimeframe, syncJournalPrices,
   openTradeModal, closeTradeModal, setTradeStatus, saveTrade, editTrade, deleteTrade,
@@ -23,7 +23,7 @@ import {
   saveFromRiskCalc, saveFromVIRisk, confirmQuickSave, closeQuickSave, saveFromScan,
   logDividend, closeDividendModal, confirmDividend,
   openSyncModal, closeSyncModal, toggleSyncTrade, confirmSync,
-} from './journal.js?v=c';
+} from './journal.js';
 
 // ─── Expose to global scope (required for HTML onclick attributes) ─────────────
 
