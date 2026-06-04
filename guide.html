@@ -66,8 +66,11 @@
           <a href="#one-percent" class="toc-link sub">1% Risk Rule</a>
           <a href="#rr" class="toc-link sub">R-Multiple</a>
           <a href="#heat" class="toc-link sub">Portfolio Heat</a>
+          <a href="#pyramiding" class="toc-link sub">Pyramiding</a>
+          <a href="#cooldown" class="toc-link sub">Monthly Cooldown</a>
           <a href="#journal" class="toc-link">4. Trade Journal</a>
           <a href="#metrics" class="toc-link sub">Performance Metrics</a>
+          <a href="#order-ttl" class="toc-link sub">Order TTL</a>
           <a href="#vi" class="toc-link">5. Value Module</a>
           <a href="#vi-score" class="toc-link sub">VI Quality Score</a>
           <a href="#fair-value" class="toc-link sub">Fair Value คืออะไร?</a>
@@ -401,6 +404,75 @@ totalHeat% = 1 + 1 + 1 = 3%  ✅ ปลอดภัย
         <div class="callout callout-red">
           <p class="text-xs text-red-200"><strong>⚠️ Max Portfolio Heat แนะนำ: 6–8%</strong> ถ้าตลาดพลิกและ Stop ทุก position ถูก Trigger พร้อมกัน จะขาดทุนไม่เกิน 6–8% ในวันเดียว — ยังอยู่รอดได้และฟื้นกลับมาได้</p>
         </div>
+
+        <!-- Pyramiding -->
+        <h3 id="pyramiding" class="section text-xl font-bold mb-3 mt-8">3.5 Pyramiding — Anti-Martingale Position Building</h3>
+        <p class="text-gray-400 text-sm mb-4">Pyramiding คือการซื้อเพิ่ม <strong>เฉพาะเมื่อหุ้นขึ้นมายืนยันทิศทางแล้ว</strong> ไม่ใช่การถัวเฉลี่ยขาลง (Martingale) ซึ่งเป็นสาเหตุหลักที่ trader ส่วนใหญ่ล้มละลาย</p>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4">
+          <div class="text-xs font-bold text-yellow-400 mb-3">⚠️ Anti-Martingale Rule — 3 เงื่อนไขบังคับ</div>
+          <div class="space-y-3 text-xs text-gray-300">
+            <div class="flex gap-3">
+              <span class="text-yellow-400 shrink-0 font-bold">1.</span>
+              <span><strong class="text-white">ต้องมีกำไรจากไม้แรกก่อน</strong> — nextEntry &gt; buyPrice ไม้แรก ถ้าหุ้นยังไม่ขึ้นมาเหนือต้นทุน ซื้อเพิ่มไม่ได้เด็ดขาด</span>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-yellow-400 shrink-0 font-bold">2.</span>
+              <span><strong class="text-white">Pyramid Ceiling — ไม้ 2 ≤ 50% ของไม้แรก</strong> — ถ้าซื้อไม้แรก 10 shares, ไม้ 2 ซื้อได้สูงสุด 5 shares เท่านั้น รักษาฐานพีระมิดให้กว้าง</span>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-yellow-400 shrink-0 font-bold">3.</span>
+              <span><strong class="text-white">Combined Risk Gate</strong> — avg cost ใหม่ vs stop ใหม่ × total shares ต้องไม่เกิน Risk% ที่ตั้งไว้</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="formula mb-4">
+<span class="text-gray-400">// ตัวอย่าง: ไม้แรก 10 shares @ $120, stop ปัจจุบัน $112</span>
+<span class="text-gray-400">// ราคาขึ้นมา $128 — พิจารณา Pyramid</span>
+
+nextEntry  = $128   <span class="text-gray-400">// ต้องสูงกว่า $120 ✅</span>
+nextStop   = $121   <span class="text-gray-400">// trailing stop ใหม่</span>
+ceiling    = ⌊10 × 0.5⌋ = 5 shares
+
+sharesLot2 = min(riskBudget / riskPerShare, ceiling)
+newAvgCost = (120×10 + 128×2) / 12 = $121.33
+combinedRisk = (121.33 − 121) × 12 / accountSize × 100 = 0.20% ✅
+        </div>
+
+        <div class="callout callout-yellow">
+          <div class="font-bold text-yellow-300 mb-1">💡 หลักการ Pyramid ที่ถูกต้อง</div>
+          <p class="text-xs text-gray-300">แต่ละไม้ที่เพิ่มต้องเล็กลง (10 → 5 → 3) — ฐานพีระมิดอยู่ด้านล่าง ยอดแหลมด้านบน ถ้าตลาดพลิกกลับ ไม้ที่ซื้อแพงที่สุด (ยอด) มีน้อยที่สุด ขาดทุนรวมจึงน้อย แต่ถ้าขึ้นต่อ กำไรรวมก็สะสมได้มาก</p>
+        </div>
+
+        <!-- Monthly Cooldown -->
+        <h3 id="cooldown" class="section text-xl font-bold mb-3 mt-8">3.6 Monthly Loss Cooldown — Capital Defensive Mode</h3>
+        <p class="text-gray-400 text-sm mb-4">เมื่อพอร์ตขาดทุนสะสมในเดือนนั้นเกิน threshold ที่กำหนด ระบบจะบังคับลดขนาด position ลงทันที เพื่อ <strong>ประคองทุนไม่ให้หมดก่อนจะฟื้น</strong></p>
+
+        <div class="formula mb-4">
+monthlyPnL = Σ (sellPrice − buyPrice) × shares  <span class="text-gray-400">// closed trades เดือนนี้</span>
+lossPct    = |min(0, monthlyPnL)| / capital × 100
+
+<span class="text-gray-400">// Threshold default: 8%</span>
+if lossPct ≥ 8%  →  <span class="text-yellow-300">Defensive Mode Active</span>
+  forcedRisk = 0.25%  <span class="text-gray-400">// จาก 1% ปกติ</span>
+  pills 1%, 2%, 3% → disabled (grey out)
+        </div>
+
+        <div class="space-y-2 mb-4">
+          <div class="flex gap-3 items-start bg-gray-900 rounded-xl p-3 border border-gray-800">
+            <span class="text-2xl shrink-0">🛡️</span>
+            <div>
+              <div class="text-sm font-bold text-red-300 mb-0.5">Defensive Mode Active</div>
+              <p class="text-xs text-gray-400">Risk Calculator จะ force ใช้ 0.25% max เท่านั้น — badge แสดงใน Risk Calculator ตลอดเดือน จนกว่าจะขึ้นปฏิทินเดือนใหม่</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-blue">
+          <div class="font-bold text-blue-300 mb-1">💡 ทำไม 8% ไม่ใช่ 5%?</div>
+          <p class="text-xs text-gray-300">5% tight เกินไปสำหรับ momentum trader ที่ทำ 1–2% ต่อ trade — โดน 3 ไม้แพ้ติดกันก็ trigger แล้ว ทำให้ไม่มีพื้นที่เทรด 8% เหมาะสมกว่า — ยังมีพื้นที่สำหรับ 4–8 ไม้ก่อน cooldown</p>
+        </div>
       </section>
 
       <!-- ════════════════════════════════════════════ -->
@@ -467,6 +539,38 @@ expectancy = (0.50 × $200) − (0.50 × $100) = $50 ต่อ trade ✅
             </div>
             <p class="text-xs text-gray-400">Expectancy บอกว่า "โดยเฉลี่ยแล้วจะได้หรือเสียเท่าไหร่ต่อ trade" ถ้าเป็นบวก = ระบบมี positive expected value = มี Edge ทางสถิติ</p>
           </div>
+        </div>
+
+        <!-- Order TTL -->
+        <h3 id="order-ttl" class="section text-xl font-bold mb-3 mt-8">4.2 Order TTL — Auto-Expire Stale Orders</h3>
+        <p class="text-gray-400 text-sm mb-4">เมื่อคุณบันทึก Open Position ใน Journal แต่ยังไม่ได้กดซื้อจริงที่ broker (หรือลืมยกเลิก buy-stop order ที่หมดเวลาแล้ว) ระบบจะช่วยเตือนอัตโนมัติ</p>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-4">
+          <div class="grid grid-cols-2 gap-4 text-xs">
+            <div>
+              <div class="text-gray-500 mb-1">TTL (Time-to-Live)</div>
+              <div class="font-bold text-white text-base">72 ชั่วโมง</div>
+              <div class="text-gray-500 mt-0.5">≈ 3 วันทำการ</div>
+            </div>
+            <div>
+              <div class="text-gray-500 mb-1">เมื่อ expire</div>
+              <div class="font-bold text-orange-400">EXPIRED badge</div>
+              <div class="text-gray-500 mt-0.5">+ toast เตือน</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="formula mb-4">
+age = Date.now() − createdAt
+
+if age &gt; 72 × 60 × 60 × 1000:
+  status = "expired"  <span class="text-gray-400">// แสดง EXPIRED badge ใน Journal</span>
+  toast  = "ยกเลิก order ที่ broker ด้วย"
+        </div>
+
+        <div class="callout callout-yellow">
+          <div class="font-bold text-yellow-300 mb-1">⚠️ สิ่งที่ต้องทำเมื่อ EXPIRED</div>
+          <p class="text-xs text-gray-300">ลบ entry ออกจาก Journal และ <strong>ยกเลิก Buy-Stop Order ที่ broker</strong> ด้วย — การ expire ใน app ไม่ได้ยกเลิก order จริงที่ broker</p>
         </div>
       </section>
 
