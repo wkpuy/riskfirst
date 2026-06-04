@@ -165,11 +165,13 @@ export function checkMonthlyCooldown(closedTrades, capital, thresholdPct = 8) {
   const now        = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
+  // Use closedAt if available (set by confirmCloseTrade); fall back to createdAt
+  // for legacy entries closed before this field was added.
   const monthTrades = closedTrades.filter(t =>
     t.status === 'closed' &&
     t.strategy !== 'dividend' &&
     t.shares > 0 &&
-    t.createdAt >= monthStart
+    (t.closedAt ?? t.createdAt) >= monthStart
   );
 
   const monthlyPnL = monthTrades.reduce(

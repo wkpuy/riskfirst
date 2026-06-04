@@ -112,9 +112,9 @@ export async function moveToBreakeven(id, buyPrice) {
 
 // ─── Partial Close Modal ──────────────────────────────────────────────────────
 
-export function openPartialCloseModal(id, symbol, buyPrice, shares) {
+export function openPartialCloseModal(id, symbol, buyPrice, shares, isVI = false) {
   state.partialCloseId  = id;
-  state.partialCloseCtx = { symbol, buyPrice: parseFloat(buyPrice), totalShares: parseFloat(shares) };
+  state.partialCloseCtx = { symbol, buyPrice: parseFloat(buyPrice), totalShares: parseFloat(shares), isVI };
 
   document.getElementById('pc-symbol').textContent = symbol;
   document.getElementById('pc-info').innerHTML = `
@@ -172,36 +172,34 @@ export async function confirmPartialClose() {
 
   const pnl       = (sellPrice - ctx.buyPrice) * sellShares;
   const remaining = ctx.totalShares - sellShares;
-  const isVI      = false;
+  const isVI      = ctx.isVI ?? false;
+  const now       = Date.now();
 
-  // 1. Update original entry: reduce shares
-  await updateJournalEntry(id, { shares: remaining });
+  try {
+    // 1. Reduce shares on the original open entry
+    await updateJournalEntry(id, { shares: remaining });
 
-  // 2. Create a closed entry for the sold portion (preserves audit trail)
-  await addJournalEntry({
-    symbol:      ctx.symbol,
-    type:        'trader',
-    status:      'closed',
-    buyPrice:    ctx.buyPrice,
-    sellPrice:   sellPrice,
-    shares:      sellShares,
-    stopPrice:   null,
-    targetPrice: null,
-    strategy:    'partial-TP',
-    chartLink:   '',
-    accountSize: null,
-    riskPct:     null,
-    plannedLoss: null,
-    plannedWin:  null,
-    rrRatio:     null,
-    targetLabel: 'Partial TP',
-    isApplied:   true,
-    createdAt:   Date.now(),
-  });
+    // 2. Create closed audit entry for the sold portion
+    await addJournalEntry({
+      symbol: ctx.symbol, type: isVI ? 'vi' : 'trader', status: 'closed',
+      buyPrice: ctx.buyPrice, sellPrice, shares: sellShares,
+      stopPrice: null, targetPrice: null,
+      strategy: 'partial-TP', chartLink: '',
+      accountSize: null, riskPct: null, plannedLoss: null,
+      plannedWin: null, rrRatio: null, targetLabel: 'Partial TP',
+      isApplied: true, closedAt: now, createdAt: now,
+    });
 
-  // 3. Update portfolio
-  const port = state.traderPortfolio || await getPortfolio('trader');
-  await updatePortfolio({ capital: port.capital + pnl, initialCapital: port.initialCapital }, 'trader');
+    // 3. Update portfolio capital
+    const port = isVI
+      ? (state.viPortfolio     || await getPortfolio('vi'))
+      : (state.traderPortfolio || await getPortfolio('trader'));
+    await updatePortfolio({ capital: port.capital + pnl, initialCapital: port.initialCapital }, isVI ? 'vi' : 'trader');
+  } catch (e) {
+    showToast(`เกิดข้อผิดพลาดระหว่างบันทึก: ${e.message} — กรุณาตรวจสอบ Journal`, 'error');
+    await loadDashboard(); // re-render to show actual DB state
+    return;
+  }
 
   closePartialCloseModal();
   showToast(`✂️ ขาย ${sellShares} shares ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} · เหลือ ${remaining} shares open`, pnl >= 0 ? 'success' : 'warning');
@@ -550,7 +548,8 @@ export async function confirmCloseTrade() {
 
   // BUG-C1: close all trade IDs (multi-lot VI positions have multiple entries)
   const idsToClose = state.closeTradeAllIds?.length ? state.closeTradeAllIds : [state.closeTradeId];
-  await Promise.all(idsToClose.map(id => updateJournalEntry(id, { status: 'closed', sellPrice: sell })));
+  const closedAt   = Date.now();
+  await Promise.all(idsToClose.map(id => updateJournalEntry(id, { status: 'closed', sellPrice: sell, closedAt })));
 
   if (shares > 0) {
     const port = isVI
