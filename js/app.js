@@ -1,0 +1,208 @@
+// app.js — Entry point
+// Initialises the app, wires input event listeners, and exposes public
+// functions to window so HTML onclick attributes can reach them.
+
+import { initDB, exportAllData, importAllData } from './db.js?v=c';
+import { showToast, showConfirm } from './ui.js?v=c';
+import {
+  switchModule, switchTab, switchTraderTab,
+  openGlobalLogicModal, closeGlobalLogicModal,
+  openStockLogicModal, closeStockLogicModal, copyPrompt,
+} from './nav.js?v=c';
+import { updateMarketRegime, renderRegimeBanner } from './regime.js?v=c';
+import { loadWatchlist, addWatchlist, removeWatchlist, addWatchlistDirect } from './watchlist.js?v=c';
+import { openCapitalModal, closeCapitalModal, saveCapital, syncPrices, renderReallocation } from './portfolio.js?v=c';
+import { updateRiskCalc, updateVIRiskCalc, applyToRiskCalc, applyToVIRisk } from './risk-calc.js?v=c';
+import { scanStock, scanAllWatchlist, selectTarget } from './trader-scan.js?v=c';
+import { scanVI, calcMOSScan } from './vi-scan.js?v=c';
+import {
+  loadDashboard, setTimeframe, syncJournalPrices,
+  openTradeModal, closeTradeModal, setTradeStatus, saveTrade, editTrade, deleteTrade,
+  openCloseTradeModal, openCloseVITrade, closeCloseTradeModal, updateCTPnl,
+  confirmCloseTrade, cancelTrade,
+  saveFromRiskCalc, saveFromVIRisk, confirmQuickSave, closeQuickSave, saveFromScan,
+  logDividend, closeDividendModal, confirmDividend,
+  openSyncModal, closeSyncModal, toggleSyncTrade, confirmSync,
+} from './journal.js?v=c';
+
+// ─── Expose to global scope (required for HTML onclick attributes) ─────────────
+
+Object.assign(window, {
+  // Navigation + modals
+  switchModule, switchTab, switchTraderTab,
+  openGlobalLogicModal, closeGlobalLogicModal,
+  openStockLogicModal, closeStockLogicModal, copyPrompt,
+
+  // Capital
+  openCapitalModal, closeCapitalModal, saveCapital,
+
+  // Trader scan
+  scanStock, scanAllWatchlist, selectTarget,
+
+  // VI scan
+  scanVI, calcMOSScan,
+
+  // Watchlist
+  addWatchlist, removeWatchlist, addWatchlistDirect,
+
+  // Risk calculators
+  applyToRiskCalc, applyToVIRisk,
+
+  // Trade journal
+  setTimeframe,
+  openTradeModal, closeTradeModal, setTradeStatus,
+  saveTrade, editTrade, deleteTrade,
+  openCloseTradeModal, openCloseVITrade, closeCloseTradeModal,
+  updateCTPnl, confirmCloseTrade, cancelTrade,
+  saveFromRiskCalc, saveFromVIRisk, confirmQuickSave, closeQuickSave, saveFromScan,
+  syncJournalPrices,
+  logDividend, closeDividendModal, confirmDividend,
+  openSyncModal, closeSyncModal, toggleSyncTrade, confirmSync,
+
+  // Portfolio
+  syncPrices,
+  evaluateHoldings: renderReallocation,
+
+  // UI helpers (used in inline HTML handlers)
+  showToast,
+  showConfirm,
+
+  // Backup / Restore
+  exportBackup: _exportBackup,
+  importBackup: _importBackup,
+  saveApiKey:   _saveApiKey,
+
+});
+
+// Risk % pill button — assigned separately to guarantee visibility
+window.setRiskPct = function(val) {
+  const range = document.getElementById('calc-risk-pct');
+  if (range) { range.value = val; range.dispatchEvent(new Event('input')); }
+  document.querySelectorAll('.risk-pct-btn').forEach(btn => {
+    const active = parseFloat(btn.dataset.rpct) === parseFloat(val);
+    btn.classList.toggle('bg-purple-600', active);
+    btn.classList.toggle('text-white',    active);
+    btn.classList.toggle('shadow-sm',     active);
+    btn.classList.toggle('text-gray-400', !active);
+  });
+};
+
+// ─── Backup helpers ───────────────────────────────────────────────────────────
+
+async function _exportBackup() {
+  try {
+    const data = await exportAllData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), {
+      href:     url,
+      download: `riskfirst-backup-${new Date().toISOString().split('T')[0]}.json`,
+    });
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Backup exported successfully!', 'success');
+  } catch (e) {
+    showToast('Error exporting data: ' + e.message, 'error');
+  }
+}
+
+function _importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      showConfirm('⚠️ จะ overwrite ข้อมูลทั้งหมด — แน่ใจ?', async () => {
+        await importAllData(data);
+        showToast('Backup imported!', 'success');
+        setTimeout(() => location.reload(), 1000);
+      });
+    } catch (err) {
+      showToast('Error parsing backup file: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function _saveApiKey() {
+  const fhKey = document.getElementById('input-api-key')?.value.trim()        || '';
+  const tdKey = document.getElementById('input-twelvedata-key')?.value.trim() || '';
+  if (fhKey) localStorage.setItem('finnhubApiKey',    fhKey); else localStorage.removeItem('finnhubApiKey');
+  if (tdKey) localStorage.setItem('twelvedataApiKey', tdKey); else localStorage.removeItem('twelvedataApiKey');
+  const saved = [fhKey && 'Finnhub', tdKey && 'Twelve Data'].filter(Boolean).join(' + ');
+  showToast(saved ? `${saved} key saved!` : 'API Keys cleared.', saved ? 'success' : 'info');
+  if (tdKey) updateMarketRegime();
+}
+
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await initDB();
+  } catch (e) {
+    console.error('DB init failed:', e);
+  }
+
+  // Populate stored API keys into settings inputs
+  const apiEl = document.getElementById('input-api-key');
+  const tdEl  = document.getElementById('input-twelvedata-key');
+  if (apiEl) apiEl.value = localStorage.getItem('finnhubApiKey')    || '';
+  if (tdEl)  tdEl.value  = localStorage.getItem('twelvedataApiKey') || '';
+
+  // ── Trader Risk Calculator ──
+  ['calc-account-size', 'calc-risk-pct', 'calc-entry-price', 'calc-stop-loss', 'calc-target-price']
+    .forEach(id => document.getElementById(id)?.addEventListener('input', updateRiskCalc));
+  document.getElementById('calc-frac')?.addEventListener('change', updateRiskCalc);
+
+  // ── VI Position Sizing — load saved settings into all inputs ──
+  const savedAllocPct = localStorage.getItem('vi_alloc_pct') || '10';
+  const savedFrac     = localStorage.getItem('vi_frac') === 'true';
+
+  // Sync to both hidden (Risk/Port page) and visible (Settings modal) inputs
+  const _syncVIInputs = (pct, frac) => {
+    ['vi-alloc-pct', 'vi-alloc-pct-settings'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = pct;
+    });
+    ['vi-frac', 'vi-frac-settings'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.checked = frac;
+    });
+    // Update preview in settings modal
+    const preview = document.getElementById('vi-alloc-preview');
+    if (preview && state.viPortfolio) {
+      preview.textContent = '$' + Math.round(state.viPortfolio.capital * (parseFloat(pct) / 100)).toLocaleString();
+    }
+  };
+  _syncVIInputs(savedAllocPct, savedFrac);
+
+  // Hidden inputs trigger updateVIRiskCalc
+  document.getElementById('vi-alloc-pct')?.addEventListener('input', updateVIRiskCalc);
+  document.getElementById('vi-frac')?.addEventListener('change', updateVIRiskCalc);
+  ['vi-mos-fair', 'vi-mos-price']
+    .forEach(id => document.getElementById(id)?.addEventListener('input', updateVIRiskCalc));
+
+  // Settings modal inputs also update preview
+  document.getElementById('vi-alloc-pct-settings')?.addEventListener('input', e => {
+    const preview = document.getElementById('vi-alloc-preview');
+    if (preview && state.viPortfolio) {
+      preview.textContent = '$' + Math.round(state.viPortfolio.capital * (parseFloat(e.target.value) / 100)).toLocaleString();
+    }
+  });
+
+  // ── Cross-module refresh events ──
+  document.addEventListener('riskfirst:refresh',      () => loadDashboard());
+  document.addEventListener('riskfirst:vi-activated', () => renderReallocation());
+  document.addEventListener('vi-risk-shown',          () => updateVIRiskCalc());
+
+  // ── Initial load ──
+  await loadDashboard();
+  loadWatchlist('trader');
+  loadWatchlist('vi');
+  // BUG-L1: render cached regime immediately so banner never stays "Loading..."
+  const cachedRegime = JSON.parse(localStorage.getItem('regimeCache') || 'null');
+  if (cachedRegime) renderRegimeBanner(cachedRegime);
+  updateMarketRegime();
+});

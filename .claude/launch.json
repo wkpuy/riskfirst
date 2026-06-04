@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "mockup",
+      "name": "riskfirst",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "3456"],
+      "runtimeArgs": ["serve.py"],
       "port": 3456
     }
   ]

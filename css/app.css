@@ -1,0 +1,230 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ── CSS Custom Properties ────────────────────────────────────────────────── */
+
+:root {
+  --safe-top:    env(safe-area-inset-top,    0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Dark (Trader) theme */
+  --bg-dark:        #0B0E14;
+  --card-dark:      #12161F;
+  --border-dark:    #1F2937;
+  --text-main:      #F3F4F6;
+  --text-muted:     #9CA3AF;
+  --accent-primary: #8B5CF6;
+  --accent-gradient: linear-gradient(135deg, #8B5CF6, #6D28D9);
+
+  /* Semantic colours */
+  --accent-green:  #10B981;
+  --accent-red:    #EF4444;
+  --accent-blue:   #3B82F6;
+  --accent-orange: #F59E0B;
+}
+
+/* Light (Value Investor) theme */
+body.vi-mode {
+  --bg-dark:        #F8FAFC;
+  --card-dark:      #FFFFFF;
+  --border-dark:    #E2E8F0;
+  --text-main:      #0F172A;
+  --text-muted:     #64748B;
+  --accent-primary: #2563EB;
+  --accent-gradient: linear-gradient(135deg, #3B82F6, #1D4ED8);
+}
+
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+::-webkit-scrollbar { display: none; }
+
+body {
+  margin: 0;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  overscroll-behavior: none;
+  padding-top: max(var(--safe-top), 20px);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ── Navigation ──────────────────────────────────────────────────────────── */
+
+.glass-nav {
+  background: rgba(11, 14, 20, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  padding: 12px 16px;
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+body.vi-mode .glass-nav {
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.glass-bottom {
+  background: rgba(18, 22, 31, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 8px);
+  padding-top: 12px;
+  z-index: 50;
+  display: flex;
+  justify-content: space-around;
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+body.vi-mode .glass-bottom {
+  background: rgba(255, 255, 255, 0.92);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.04);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.nav-item.active { color: var(--accent-primary); }
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--card-dark);
+  border: 1px solid var(--border-dark);
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+body.vi-mode .card { box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03); }
+
+/* ── Form inputs ─────────────────────────────────────────────────────────── */
+
+.input-elegant {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  border-radius: 12px;
+  padding: 12px 16px;
+  width: 100%;
+  font-size: 16px;
+  transition: all 0.2s;
+  outline: none;
+}
+.input-elegant:focus {
+  border-color: var(--accent-primary);
+  background: rgba(139, 92, 246, 0.05);
+}
+body.vi-mode .input-elegant         { background: #F1F5F9; border: 1px solid #E2E8F0; }
+body.vi-mode .input-elegant:focus   { background: #EFF6FF; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.btn-primary {
+  background: var(--accent-gradient);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  width: 100%;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+.btn-primary:active { transform: scale(0.98); }
+
+/* ── Nav icon buttons — adapts dark ↔ light theme ───────────────────────── */
+
+.nav-icon-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.65);
+}
+.nav-icon-btn:hover  { color: #fff; background: rgba(255, 255, 255, 0.14); }
+
+body.vi-mode .nav-icon-btn {
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: rgba(0, 0, 0, 0.45);
+}
+body.vi-mode .nav-icon-btn:hover { color: #111827; background: rgba(0, 0, 0, 0.1); }
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+
+.fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 10px var(--accent-green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0   rgba(16, 185, 129, 0.7); }
+  70%  { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);   }
+  100% { box-shadow: 0 0 0 0   rgba(16, 185, 129, 0);   }
+}
+
+/* ── Segmented control ───────────────────────────────────────────────────── */
+
+.seg-control {
+  display: flex;
+  background: rgba(128, 128, 128, 0.1);
+  border-radius: 999px;
+  padding: 3px;
+}
+.seg-control button {
+  flex: 1; padding: 6px 0; border: none;
+  background: transparent; color: var(--text-muted);
+  font-size: 12px; font-weight: 700;
+  border-radius: 999px; cursor: pointer; transition: all 0.2s;
+}
+.seg-control button.active {
+  background: var(--card-dark);
+  color: var(--text-main);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Module / Tab visibility ─────────────────────────────────────────────── */
+
+.module-view          { display: none !important; }
+#module-trader        { display: block !important; }
+.tab-view             { display: none; }
+.tab-view.active      { display: block; }
+
+/* ── Pills ───────────────────────────────────────────────────────────────── */
+
+.pill {
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pill-green  { background: rgba(16,  185, 129, 0.15); color: #10B981; }
+.pill-blue   { background: rgba(59,  130, 246, 0.15); color: #3B82F6; }
+.pill-orange { background: rgba(245, 158,  11, 0.15); color: #F59E0B; }
+.pill-red    { background: rgba(239,  68,  68, 0.15); color: #EF4444; }

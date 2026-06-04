@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>คู่มือ RiskFirst — ทฤษฎีและหลักการ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', -apple-system, sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #0B0E14; } ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+    body { background: #0B0E14; color: #F3F4F6; margin: 0; padding: 0; }
+
+    .toc-link { color: #9CA3AF; text-decoration: none; display: block; padding: 6px 12px; border-radius: 8px; font-size: 13px; transition: all 0.15s; }
+    .toc-link:hover { background: #1F2937; color: #F3F4F6; }
+    .toc-link.sub { padding-left: 24px; font-size: 12px; }
+
+    .section { scroll-margin-top: 80px; }
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .formula { background: #0f1724; border: 1px solid #1F2937; border-radius: 12px; padding: 16px; font-family: 'Courier New', monospace; font-size: 13px; color: #A78BFA; overflow-x: auto; }
+    .rule-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid #1F2937; }
+    .rule-row:last-child { border-bottom: none; }
+    .rule-num { background: #1F2937; border-radius: 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #9CA3AF; shrink: 0; }
+    .callout { border-radius: 12px; padding: 14px 16px; margin: 12px 0; }
+    .callout-green { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
+    .callout-red { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+    .callout-yellow { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); }
+    .callout-blue { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); }
+    .callout-purple { background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.2); }
+
+    .sticky-header { position: sticky; top: 0; z-index: 50; background: rgba(11,14,20,0.9); backdrop-filter: blur(12px); border-bottom: 1px solid #1F2937; }
+
+    @media (max-width: 768px) { .sidebar { display: none; } }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="sticky-header px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="./index.html" class="text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1.5">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        กลับแอป
+      </a>
+      <span class="text-gray-600">|</span>
+      <span class="text-white font-bold text-sm">📖 คู่มือระบบ RiskFirst</span>
+    </div>
+    <span class="text-xs text-gray-500">อัปเดต Jun 2026</span>
+  </div>
+
+  <div class="max-w-5xl mx-auto flex gap-8 px-4 py-8">
+
+    <!-- Sidebar TOC (desktop) -->
+    <aside class="sidebar w-56 shrink-0">
+      <div class="sticky top-20">
+        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3 px-2">สารบัญ</p>
+        <nav class="space-y-0.5">
+          <a href="#philosophy" class="toc-link">1. ปรัชญาระบบ</a>
+          <a href="#trader" class="toc-link">2. Trader Module</a>
+          <a href="#sepa" class="toc-link sub">SEPA 8 เกณฑ์</a>
+          <a href="#regime" class="toc-link sub">Market Regime</a>
+          <a href="#earnings" class="toc-link sub">Earnings Window</a>
+          <a href="#score" class="toc-link sub">Composite Score</a>
+          <a href="#risk" class="toc-link">3. Risk Management</a>
+          <a href="#atr" class="toc-link sub">ATR Stop Loss</a>
+          <a href="#one-percent" class="toc-link sub">1% Risk Rule</a>
+          <a href="#rr" class="toc-link sub">R-Multiple</a>
+          <a href="#heat" class="toc-link sub">Portfolio Heat</a>
+          <a href="#journal" class="toc-link">4. Trade Journal</a>
+          <a href="#metrics" class="toc-link sub">Performance Metrics</a>
+          <a href="#vi" class="toc-link">5. Value Module</a>
+          <a href="#vi-score" class="toc-link sub">VI Quality Score</a>
+          <a href="#fair-value" class="toc-link sub">Fair Value คืออะไร?</a>
+          <a href="#mos" class="toc-link sub">Margin of Safety</a>
+          <a href="#vi-sizing" class="toc-link sub">Position Sizing VI</a>
+          <a href="#glossary" class="toc-link">6. Glossary & สูตร</a>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 min-w-0 space-y-12">
+
+      <!-- Hero -->
+      <div class="rounded-2xl p-6" style="background:linear-gradient(135deg,#1e1030,#0f1724)">
+        <div class="text-3xl font-black mb-2">📖 คู่มือ RiskFirst</div>
+        <p class="text-gray-300 text-sm leading-relaxed">ทฤษฎีและหลักการเบื้องหลังทุกตัวเลขในระบบ — ตั้งแต่ SEPA Trend Template ของ Mark Minervini ไปจนถึง Margin of Safety ของ Benjamin Graham เขียนขึ้นเพื่อให้คุณเข้าใจ <em>ว่าทำไม</em> ไม่ใช่แค่ <em>ต้องทำอะไร</em></p>
+      </div>
+
+      <!-- ════════════════════════════════════════════ -->
+      <!-- 1. PHILOSOPHY -->
+      <!-- ════════════════════════════════════════════ -->
+      <section id="philosophy" class="section">
+        <h2 class="text-2xl font-black mb-1">1. ปรัชญาของระบบ</h2>
+        <p class="text-gray-400 text-sm mb-5">หลักการสามข้อที่ระบบยึดถือเป็นกรอบตัดสินใจทุกอย่าง</p>
+
+        <div class="grid gap-4">
+          <div class="callout callout-purple">
+            <div class="font-bold text-purple-300 mb-1">🔢 Deterministic-First</div>
+            <p class="text-sm text-gray-300">ตัวเลขทุกตัวในระบบต้องคำนวณได้ซ้ำ — ใส่ input เดิมต้องได้ output เดิมเสมอ ไม่มีความคลุมเครือ ไม่มี AI ตัดสินใจแทน ทุกสัญญาณมาจากกฎตัวเลขที่ backtest ได้</p>
+          </div>
+          <div class="callout callout-blue">
+            <div class="font-bold text-blue-300 mb-1">🤝 AI Narrates — Human Decides</div>
+            <p class="text-sm text-gray-300">ระบบให้ข้อมูลครบที่สุดเท่าที่จะทำได้ แต่การตัดสินใจซื้อหรือไม่ซื้อเป็นของคุณเสมอ ไม่มีปุ่ม "ซื้อเลย" ในระบบนี้ ผลลัพธ์ทุกอย่างเป็น briefing ไม่ใช่คำสั่ง</p>
+          </div>
+          <div class="callout callout-green">
+            <div class="font-bold text-green-300 mb-1">🛡️ Risk-First Mindset</div>
+            <p class="text-sm text-gray-300">ก่อนคิดว่าจะกำไรเท่าไหร่ ให้คิดก่อนว่าจะเสียได้เท่าไหร่ — นี่คือ DNA ของระบบ ชื่อ "RiskFirst" ไม่ได้บังเอิญ นักเทรดที่รอดในระยะยาวไม่ใช่คนที่กำไรมากที่สุด แต่คือคนที่ขาดทุนน้อยที่สุดในช่วงขาลง</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ -->
+      <!-- 2. TRADER MODULE -->
+      <!-- ════════════════════════════════════════════ -->
+      <section id="trader" class="section">
+        <h2 class="text-2xl font-black mb-1">2. Trader Module — Momentum Trading</h2>
+        <p class="text-gray-400 text-sm mb-5">อ้างอิงหลักจากหนังสือ <em>Trade Like a Stock Market Wizard</em> และ <em>Think & Trade Like a Champion</em> ของ Mark Minervini — นักเทรดที่ชนะ US Investing Championship ด้วย return 155% ใน 1 ปี</p>
+
+        <div class="callout callout-purple mb-6">
+          <div class="font-bold text-purple-300 mb-2">💡 แนวคิดหลัก: Superperformance Stock</div>
+          <p class="text-sm text-gray-300 leading-relaxed">Minervini ค้นพบว่าหุ้นที่ขึ้นเยอะที่สุดในประวัติศาสตร์ (NVDA, AMZN, AAPL ในช่วงขาขึ้น) มีรูปแบบเดียวกันก่อนที่มันจะ "วิ่ง" — คือผ่านเกณฑ์ SEPA ครบทุกข้อ แนวคิดคือ "ซื้อหุ้นที่แข็งแกร่งอยู่แล้วตอนที่มันกำลังจะแข็งแกร่งยิ่งขึ้น" ไม่ใช่ซื้อหุ้นถูกแล้วรอ</p>
+        </div>
+
+        <!-- SEPA -->
+        <h3 id="sepa" class="section text-xl font-bold mb-3 mt-8">2.1 SEPA Trend Template — 8 เกณฑ์</h3>
+        <p class="text-gray-400 text-sm mb-4">SEPA ย่อจาก <strong>Specific Entry Point Analysis</strong> — เป็น checklist ที่ Minervini ใช้คัดกรองหุ้นก่อนพิจารณาเข้าซื้อ ผ่านครบ 8/8 = Qualifies เท่านั้น</p>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden mb-6">
+          <div class="px-4 py-2 border-b border-gray-800 flex justify-between items-center">
+            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">SEPA 8 เกณฑ์</span>
+            <span class="text-xs text-gray-500">input: ราคา + MA50/150/200 + 52w High/Low + RS Rating</span>
+          </div>
+          <div class="p-4 space-y-0">
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">1</div>
+              <div>
+                <div class="text-sm font-bold text-white mb-0.5">ราคา > MA150 <span class="text-gray-500">&</span> MA200</div>
+                <p class="text-xs text-gray-400">หุ้นต้องอยู่เหนือเส้นค่าเฉลี่ย 150 และ 200 วัน — ยืนยันว่าอยู่ในแนวโน้มขาขึ้นระยะกลางและระยะยาว เส้นเหล่านี้เป็น "แรงซื้อสุทธิสะสม" ของนักลงทุนสถาบัน</p>
+                <div class="formula mt-2">price &gt; ma150 &amp;&amp; price &gt; ma200</div>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">2</div>
+              <div>
+                <div class="text-sm font-bold text-white mb-0.5">MA150 > MA200 (เรียงตัว)</div>
+                <p class="text-xs text-gray-400">เส้นค่าเฉลี่ยระยะกลาง (150 วัน) ต้องอยู่เหนือระยะยาว (200 วัน) บ่งบอกว่าโมเมนตัมกำลังขยายตัว ไม่ใช่แค่ราคาเด้งชั่วคราว</p>
+                <div class="formula mt-2">ma150 &gt; ma200</div>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">3</div>
+              <div>
+                <div class="text-sm font-bold text-white mb-0.5">MA200 ขาขึ้นต่อเนื่อง ≥ 1 เดือน</div>
+                <p class="text-xs text-gray-400">เส้น MA200 ต้องชี้ขึ้นมาอย่างน้อย 1 เดือน (20 วันทำการ) กันกรณีที่ราคาขยับขึ้นชั่วคราวแต่แนวโน้มระยะยาวยังเป็นขาลง</p>
+                <div class="formula mt-2">ma200_today &gt; ma200_20daysAgo</div>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">4</div>
+              <div>
+                <div class="text-sm font-bold text-white mb-0.5">MA50 > MA150 & MA200</div>
+                <p class="text-xs text-gray-400">เส้นระยะสั้น (50 วัน) ต้องนำหน้าเส้นระยะยาวทั้งสอง — เป็นการยืนยันว่าโมเมนตัมระยะสั้นสอดคล้องกับระยะยาว "เรียงซ้อนกัน" อย่างสมบูรณ์</p>
+                <div class="formula mt-2">ma50 &gt; ma150 &amp;&amp; ma50 &gt; ma200</div>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">5</div>
+              <div>
+                <div class="text-sm font-bold text-white mb-0.5">ราคา > MA50</div>
+                <p class="text-xs text-gray-400">ราคาต้องอยู่เหนือเส้น 50 วัน — เส้นนี้มักเป็น "แนวรับ" ของนักเทรดสถาบัน ถ้าราคาอยู่ใต้ MA50 แสดงว่ายังอยู่ในช่วง Correction หรือ Distribution</p>
+                <div class="formula mt-2">price &gt; ma50</div>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">6</div>
+              <div>
+                <div class="text-sm font-bold text-white mb-0.5">ราคาสูงกว่า 52w Low ≥ 30%</div>
+                <p class="text-xs text-gray-400">หุ้นต้องฟื้นตัวจากจุดต่ำสุดในรอบปีขึ้นมาอย่างน้อย 30% — กันหุ้นที่เพิ่งเด้งจากจุดต่ำสุดและยังไม่ได้ยืนยันแนวโน้มใหม่ หุ้นที่ขึ้นมา 30%+ มักมีนักลงทุนสถาบันสะสมอยู่เบื้องหลัง</p>
+                <div class="formula mt-2">price &gt;= low52w × 1.30</div>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">7</div>
+              <div>
+                <div class="text-sm font-bold text-white mb-0.5">ราคาห่างจาก 52w High ≤ 25%</div>
+                <p class="text-xs text-gray-400">หุ้นต้องอยู่ "ใกล้" จุดสูงสุดในรอบปี — ถ้าห่างเกิน 25% แสดงว่าอาจยังอยู่ในขาลงหรือ Base ยาว ยิ่งอยู่ใกล้ High มาก = ยิ่งพร้อม Breakout</p>
+                <div class="formula mt-2">price &gt;= high52w × 0.75  <span class="text-gray-500">// = อยู่ภายใน 25% จาก High</span></div>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">8</div>
+              <div>
+                <div class="text-sm font-bold text-white mb-0.5">RS Rating ≥ 70</div>
+                <p class="text-xs text-gray-400">Relative Strength Rating ต้องสูงกว่า 70 (จาก 1–99) — หมายความว่าหุ้นตัวนี้ชนะหุ้นอย่างน้อย 70% ในตลาด Minervini เน้นว่า "ซื้อหุ้นที่แข็งที่สุดในตลาด" ไม่ใช่ซื้อหุ้นอ่อนที่หวังว่าจะฟื้น</p>
+                <div class="formula mt-2">rsRating &gt;= 70  <span class="text-gray-500">// &gt;= 80 ดีมาก</span></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Market Regime -->
+        <h3 id="regime" class="section text-xl font-bold mb-3 mt-8">2.2 Market Regime Filter</h3>
+        <p class="text-gray-400 text-sm mb-4">ก่อนดู SEPA หุ้นรายตัว ระบบตรวจ "สภาพตลาดโดยรวม" ก่อน — นี่คือ "กันชน" ที่สำคัญที่สุดของระบบ Minervini กล่าวว่า 75% ของหุ้นเดินตามตลาด ถ้าตลาดลง หุ้น SEPA 8/8 ก็มักลงตาม</p>
+
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div class="callout callout-green">
+            <div class="font-bold text-green-300 flex items-center gap-2 mb-2">🟢 BULL Market</div>
+            <p class="text-xs text-gray-300">SPY <strong>และ</strong> QQQ ทั้งคู่อยู่เหนือ MA200<br>→ เปิด Long ใหม่ได้ตามปกติ</p>
+          </div>
+          <div class="callout callout-red">
+            <div class="font-bold text-red-300 flex items-center gap-2 mb-2">🔴 BEAR Market</div>
+            <p class="text-xs text-gray-300">อย่างน้อยหนึ่งตัวต่ำกว่า MA200<br>→ งดเปิด Long ใหม่ทั้งหมด ถือเงินสด</p>
+          </div>
+        </div>
+
+        <div class="callout callout-yellow mb-2">
+          <p class="text-xs text-yellow-200">⚠️ <strong>ทำไมถึงใช้ SPY และ QQQ ทั้งคู่?</strong> SPY ตัวแทน S&P 500 (broad market) และ QQQ ตัวแทน Nasdaq 100 (growth/tech) หากแยกกันลงแสดงว่ามี Rotation sector ไม่ใช่ Trend reversal แต่ถ้าทั้งคู่ลงพร้อมกัน = สัญญาณ Broad Market Weakness</p>
+        </div>
+        <p class="text-xs text-gray-500">ระบบ cache ผลไว้ 6 ชั่วโมง ต้องการ Twelve Data API Key</p>
+
+        <!-- Earnings -->
+        <h3 id="earnings" class="section text-xl font-bold mb-3 mt-8">2.3 Earnings Window — ความเสี่ยงพิเศษ</h3>
+        <p class="text-gray-400 text-sm mb-4">งบการเงินรายไตรมาสคือ "ความเสี่ยงที่ไม่อาจคาดเดาได้" — ราคาอาจ Gap ขึ้นหรือลง 10–30% ในคืนเดียว ทำให้ Stop Loss ไม่ทำงาน (เกิด Slippage รุนแรง)</p>
+
+        <div class="space-y-3 mb-4">
+          <div class="callout callout-red">
+            <div class="font-bold text-red-300 mb-1">🚫 0–5 วันก่อนงบ — ห้ามเข้า</div>
+            <p class="text-xs text-gray-300">ความเสี่ยงสูงสุด — อย่าเข้าซื้อ position ใหม่ ถ้ามี position อยู่แล้วพิจารณา reduce size หรือตั้ง Stop กว้างขึ้น (3.0×ATR แทน 2.5×ATR)</p>
+          </div>
+          <div class="callout callout-yellow">
+            <div class="font-bold text-yellow-300 mb-1">⚠️ 6–14 วันก่อนงบ — ระวัง</div>
+            <p class="text-xs text-gray-300">IV (Implied Volatility) เริ่มสูงขึ้น ถ้าเข้าได้ให้ใช้ Stop กว้างกว่าปกติ หรือลด position size ลงครึ่งหนึ่ง</p>
+          </div>
+          <div class="callout callout-green">
+            <div class="font-bold text-green-300 mb-1">🎯 3–45 วันหลังงบ — Post-Earnings Setup</div>
+            <p class="text-xs text-gray-300">หนึ่งใน High-Probability Setup ที่ Minervini แนะนำ — ถ้าหุ้น SEPA ผ่านครบหลังงบออก แสดงว่า "งบดีและตลาดชอบ" Base ที่เกิดหลังงบมักแข็งแกร่งมาก</p>
+            <p class="text-[10px] text-gray-500 mt-1">ระบบประมาณวันงบ = วันงบล่าสุด + 90 วัน (ไม่ใช่วันจริง อาจคลาดเคลื่อน ±2–3 สัปดาห์)</p>
+          </div>
+        </div>
+
+        <!-- Composite Score -->
+        <h3 id="score" class="section text-xl font-bold mb-3 mt-8">2.4 Composite Score & Scan All</h3>
+        <p class="text-gray-400 text-sm mb-4">เมื่อ SEPA ผ่านแล้ว ระบบจะให้คะแนน 0–100 คะแนนเพื่อ<strong>จัดอันดับ</strong>ว่าหุ้นไหนน่าสนใจกว่ากัน</p>
+
+        <div class="formula mb-4">
+score = (rsRating / 99)      × 40   <span class="text-gray-500">// RS — ชนะตลาดแค่ไหน</span>
+      + (sepaScore / 8)      × 25   <span class="text-gray-500">// SEPA — ผ่านกี่เกณฑ์</span>
+      + proximity            × 25   <span class="text-gray-500">// ใกล้ 52w High (0–1)</span>
+      + volumeDryScore       × 10   <span class="text-gray-500">// Volume หดตัว (0–1)</span>
+
+proximity = 1 − ((high52w − price) / high52w)
+volumeDryScore = 1 − (avgVol5d / avgVol20d)   <span class="text-gray-500">// clamp 0–1</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="bg-gray-900 border border-purple-900/50 rounded-xl p-3">
+            <div class="text-purple-400 font-bold text-xs mb-1">40% RS Rank</div>
+            <p class="text-xs text-gray-400">ปัจจัยสำคัญที่สุด — หุ้นที่วิ่งเยอะที่สุดในอนาคตมักวิ่งเยอะที่สุดในปัจจุบันแล้ว ซื้อความแข็งแกร่ง ไม่ใช่ซื้อความอ่อนแอ</p>
+          </div>
+          <div class="bg-gray-900 border border-green-900/50 rounded-xl p-3">
+            <div class="text-green-400 font-bold text-xs mb-1">25% SEPA Score</div>
+            <p class="text-xs text-gray-400">ผ่านครบ 8/8 ได้คะแนนเต็ม แต่ผ่าน 7/8 ก็ยังได้คะแนนสูง ช่วยให้เห็นว่า "เกือบผ่าน" ไม่ใช่เท่ากับ "ผ่าน"</p>
+          </div>
+          <div class="bg-gray-900 border border-orange-900/50 rounded-xl p-3">
+            <div class="text-orange-400 font-bold text-xs mb-1">25% ใกล้ New High</div>
+            <p class="text-xs text-gray-400">ยิ่งจ่อ 52w High มาก = ยิ่งใกล้ Breakout ราคา New High มักดึงดูด Momentum Trader เข้ามาเพิ่ม</p>
+          </div>
+          <div class="bg-gray-900 border border-blue-900/50 rounded-xl p-3">
+            <div class="text-blue-400 font-bold text-xs mb-1">10% Volume Dry-up</div>
+            <p class="text-xs text-gray-400">Volume ลดลงขณะราคา Consolidate = แรงขายหมด (Sellers Exhaustion) สัญญาณ VCP ที่ Minervini ให้ความสำคัญมาก</p>
+          </div>
+        </div>
+
+        <div class="callout callout-blue">
+          <p class="text-xs text-blue-200"><strong>วิธีใช้ Scan All:</strong> กดปุ่ม "Scan All" ใน Watchlist → ระบบดึงข้อมูลทุกตัว (Finnhub quote + Twelve Data candles) แล้วคำนวณคะแนนและจัดอันดับ กดที่การ์ดหุ้นได้เลยเพื่อ Scan แบบเต็มรูปแบบ</p>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ -->
+      <!-- 3. RISK MANAGEMENT -->
+      <!-- ════════════════════════════════════════════ -->
+      <section id="risk" class="section">
+        <h2 class="text-2xl font-black mb-1">3. Risk Management</h2>
+        <p class="text-gray-400 text-sm mb-6">"ผู้ชนะไม่ใช่คนที่ถูกมากที่สุด แต่คือคนที่ผิดได้โดยไม่เจ็บปวดมาก" — Ed Seykota</p>
+
+        <!-- ATR -->
+        <h3 id="atr" class="section text-xl font-bold mb-3">3.1 ATR Stop Loss</h3>
+        <p class="text-gray-400 text-sm mb-4">ATR (Average True Range) วัด "ความผันผวนปกติ" ของหุ้นแต่ละตัว ทำให้ Stop Loss เหมาะกับหุ้นนั้นๆ ไม่ใช่ใช้ % เดียวกันทุกตัว</p>
+
+        <div class="formula mb-4">
+<span class="text-gray-400">// True Range ของแต่ละวัน</span>
+TR = max(
+  High − Low,               <span class="text-gray-500">// Range ภายในวัน</span>
+  |High − PrevClose|,       <span class="text-gray-500">// Gap ขึ้น</span>
+  |Low  − PrevClose|        <span class="text-gray-500">// Gap ลง</span>
+)
+
+<span class="text-gray-400">// ATR-14 ด้วย Wilder's Smoothing (ไม่ใช่ Simple Average)</span>
+ATR[0]  = Average(TR, 14)              <span class="text-gray-500">// seed ด้วย SMA 14 bar แรก</span>
+ATR[i]  = (ATR[i-1] × 13 + TR[i]) / 14
+
+<span class="text-gray-400">// Stop Loss</span>
+stop = entry − (ATR × 2.5)
+stop = max(stop, entry × 0.01)         <span class="text-gray-500">// floor: ต่ำสุด 1% ของราคา</span>
+        </div>
+
+        <div class="callout callout-yellow mb-4">
+          <p class="text-xs text-yellow-200"><strong>ทำไม Wilder's Smoothing ไม่ใช่ Simple Average?</strong> Wilder's EMA ให้น้ำหนักกับ ATR วันก่อนมากกว่า (×13/14) ทำให้ผลเรียบกว่า ตอบสนองต่อ spike ช้ากว่า และตรงกับ ATR ที่นักเทรดสถาบันและ Minervini ใช้จริง Simple Average จะ "กระโดด" มากเกินไปหลัง Volatility spike</p>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 mb-6">
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
+            <div class="text-yellow-400 font-bold text-lg">2.5×</div>
+            <div class="text-xs text-gray-400 mt-1">ATR Stop ปกติ</div>
+          </div>
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
+            <div class="text-orange-400 font-bold text-lg">3.0×</div>
+            <div class="text-xs text-gray-400 mt-1">ใกล้งบ (6–14 วัน)</div>
+          </div>
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
+            <div class="text-gray-400 font-bold text-lg">min 1%</div>
+            <div class="text-xs text-gray-400 mt-1">Floor ป้องกัน Stop ติดลบ</div>
+          </div>
+        </div>
+
+        <!-- 1% Rule -->
+        <h3 id="one-percent" class="section text-xl font-bold mb-3 mt-8">3.2 1% Risk Rule — Position Sizing</h3>
+        <p class="text-gray-400 text-sm mb-4">กฎเหล็กที่ว่า "ในแต่ละ trade จงเสี่ยงไม่เกิน 1% ของพอร์ต" — ถ้าทุน $1,000 และ Stop ถูก Trigger จะขาดทุนไม่เกิน $10 แต่ละ trade</p>
+
+        <div class="formula mb-4">
+riskPerTrade  = accountSize × (riskPct / 100)
+                <span class="text-gray-500">// เช่น $1,000 × 1% = $10</span>
+
+riskPerShare  = entryPrice − stopPrice
+                <span class="text-gray-500">// ระยะห่างระหว่าง Entry กับ Stop</span>
+
+shares        = riskPerTrade / riskPerShare
+                <span class="text-gray-500">// ปัดลง (ถ้าไม่ใช้ Fractional)</span>
+
+positionValue = shares × entryPrice
+positionPct   = (positionValue / accountSize) × 100
+        </div>
+
+        <div class="callout callout-green mb-4">
+          <div class="font-bold text-green-300 mb-2">💡 ทำไม 1% ไม่ใช่ 5% หรือ 10%?</div>
+          <p class="text-xs text-gray-300 leading-relaxed">สมมุติ win rate 50% (ถูก 1 ผิด 1) และ R/R = 2:1 ถ้าเสี่ยง 1% ต่อ trade: ขาดทุน 10 trade ติดกัน (โอกาส 0.1%) ก็เสียแค่ 10% ของพอร์ต แต่ถ้าเสี่ยง 10% ต่อ trade: ขาดทุน 3 trade ติดกัน (โอกาส 12.5%) ก็เสียไป 27% แล้ว — 1% คือ "ประกันความอยู่รอด" ในระยะยาว</p>
+        </div>
+
+        <div class="callout callout-yellow">
+          <p class="text-xs text-yellow-200">⚠️ <strong>Alert:</strong> ถ้า position value เกิน 20% ของพอร์ต ระบบจะเตือน — หมายความว่า stop ใกล้มากเกินไป ควรขยาย stop หรือลด risk % ลง</p>
+        </div>
+
+        <!-- R-Multiple -->
+        <h3 id="rr" class="section text-xl font-bold mb-3 mt-8">3.3 R-Multiple — วัด Risk/Reward</h3>
+        <p class="text-gray-400 text-sm mb-4">R-Multiple คือหน่วยมาตรฐานที่ Van Tharp นิยมใช้ในการวัดผลการเทรด แทนที่จะพูดว่า "กำไร $500" ให้พูดว่า "กำไร 2R" — เพราะมันบอกว่าได้กำไรเท่ากับ 2 เท่าของ Risk ที่เสี่ยงไป</p>
+
+        <div class="formula mb-4">
+1R = riskPerTrade  <span class="text-gray-500">// ความเสี่ยงต่อ trade = 1 หน่วย R</span>
+
+realizedR = (sellPrice − buyPrice) / (buyPrice − stopPrice)
+
+<span class="text-gray-400">// ตัวอย่าง:</span>
+Buy $100, Stop $90, Sell $120
+riskPerShare = $100 − $90 = $10  (= 1R)
+gainPerShare = $120 − $100 = $20
+realizedR    = $20 / $10 = 2.0R  ✅
+
+<span class="text-gray-400">// Target selection:</span>
+2R target = entry + (risk × 2)
+3R target = entry + (risk × 3)
+        </div>
+
+        <div class="callout callout-purple mb-6">
+          <div class="font-bold text-purple-300 mb-2">📐 ทำไมต้องเลือก Target ก่อนเข้า?</div>
+          <p class="text-xs text-gray-300">การรู้ R/R ก่อนเข้า trade ช่วยกรอง trade ที่ไม่ดีออกไป ถ้า 52w High อยู่ต่ำกว่า 2R target แสดงว่า Upside จำกัดมาก — อาจไม่คุ้มที่จะเสี่ยง Minervini แนะนำ min R/R = 3:1 (เสี่ยง 1 ได้ 3)</p>
+        </div>
+
+        <!-- Portfolio Heat -->
+        <h3 id="heat" class="section text-xl font-bold mb-3 mt-8">3.4 Portfolio Heat</h3>
+        <p class="text-gray-400 text-sm mb-4">Portfolio Heat คือ "ความเสี่ยงรวม" ของทุก position ที่เปิดอยู่ในขณะนี้ เปรียบเหมือนอุณหภูมิของพอร์ต — ยิ่งสูงยิ่งอันตราย</p>
+
+        <div class="formula mb-4">
+heatPerPosition = shares × (entryPrice − stopPrice)  <span class="text-gray-500">// max loss ถ้า stop hit</span>
+totalHeat       = Σ heatPerPosition
+portfolioHeat%  = (totalHeat / accountSize) × 100
+
+<span class="text-gray-400">// เช่น มี 3 position เสี่ยงตัวละ 1%</span>
+totalHeat% = 1 + 1 + 1 = 3%  ✅ ปลอดภัย
+        </div>
+
+        <div class="callout callout-red">
+          <p class="text-xs text-red-200"><strong>⚠️ Max Portfolio Heat แนะนำ: 6–8%</strong> ถ้าตลาดพลิกและ Stop ทุก position ถูก Trigger พร้อมกัน จะขาดทุนไม่เกิน 6–8% ในวันเดียว — ยังอยู่รอดได้และฟื้นกลับมาได้</p>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ -->
+      <!-- 4. TRADE JOURNAL -->
+      <!-- ════════════════════════════════════════════ -->
+      <section id="journal" class="section">
+        <h2 class="text-2xl font-black mb-1">4. Trade Journal</h2>
+        <p class="text-gray-400 text-sm mb-6">Journal ไม่ใช่แค่บันทึก — มันคือ "data" ที่บอกว่าระบบของคุณทำงานหรือเปล่า</p>
+
+        <h3 id="metrics" class="section text-xl font-bold mb-4">4.1 Performance Metrics</h3>
+
+        <div class="space-y-4">
+          <!-- Win Rate -->
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex justify-between items-start mb-2">
+              <h4 class="font-bold text-blue-400">Win Rate</h4>
+              <span class="badge bg-blue-900/40 text-blue-300">Dashboard</span>
+            </div>
+            <div class="formula mb-2">winRate = wins / totalTrades × 100</div>
+            <p class="text-xs text-gray-400">Win rate ที่ดีคือเท่าไหร่? <strong>ไม่ใช่ 70–80% เสมอไป</strong> — ถ้า R/R = 3:1 แค่ win rate 30% ก็ยังมี Edge ดู Profit Factor ร่วมด้วยเสมอ</p>
+          </div>
+
+          <!-- Profit Factor -->
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex justify-between items-start mb-2">
+              <h4 class="font-bold text-purple-400">Profit Factor</h4>
+              <span class="badge bg-purple-900/40 text-purple-300">สำคัญที่สุด</span>
+            </div>
+            <div class="formula mb-2">
+profitFactor = grossProfit / grossLoss
+
+&gt; 1.0  = มี Edge (ทำกำไรในระยะยาว)
+&gt; 1.5  = ดี
+&gt; 2.0  = ดีมาก
+            </div>
+            <p class="text-xs text-gray-400">Profit Factor รวม Win Rate และ R/R เข้าไว้ด้วยกัน เป็นตัวเลขเดียวที่บอกว่าระบบคุณ "มี Edge หรือเปล่า" ถ้าต่ำกว่า 1.0 = ระบบขาดทุนในระยะยาว ไม่ว่าจะ win rate สูงแค่ไหน</p>
+          </div>
+
+          <!-- Avg R/R -->
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex justify-between items-start mb-2">
+              <h4 class="font-bold text-yellow-400">Avg Realized R/R</h4>
+              <span class="badge bg-yellow-900/40 text-yellow-300">Dashboard</span>
+            </div>
+            <div class="formula mb-2">
+avgRR = Σ realizedR / closedTrades
+
+realizedR[i] = (sellPrice − buyPrice) / (buyPrice − stopPrice)
+            </div>
+            <p class="text-xs text-gray-400">ค่าเฉลี่ย R-Multiple ที่ realize จริงในทุก trade ถ้า Avg R/R &lt; 1.0 แสดงว่าคุณกำลัง "ปล่อยให้ผู้แพ้วิ่งและตัดผู้ชนะเร็วเกินไป" ซึ่งเป็นข้อผิดพลาดทางจิตวิทยาที่พบบ่อยมากที่สุด</p>
+          </div>
+
+          <!-- Expectancy -->
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex justify-between items-start mb-2">
+              <h4 class="font-bold text-green-400">Expectancy (ค่าคาดหวัง)</h4>
+              <span class="badge bg-green-900/40 text-green-300">Van Tharp</span>
+            </div>
+            <div class="formula mb-2">
+expectancy = (winRate × avgWin) − (lossRate × avgLoss)
+
+<span class="text-gray-400">// ตัวอย่าง: Win 50%, Avg Win $200, Avg Loss $100</span>
+expectancy = (0.50 × $200) − (0.50 × $100) = $50 ต่อ trade ✅
+            </div>
+            <p class="text-xs text-gray-400">Expectancy บอกว่า "โดยเฉลี่ยแล้วจะได้หรือเสียเท่าไหร่ต่อ trade" ถ้าเป็นบวก = ระบบมี positive expected value = มี Edge ทางสถิติ</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ -->
+      <!-- 5. VALUE INVESTOR MODULE -->
+      <!-- ════════════════════════════════════════════ -->
+      <section id="vi" class="section">
+        <h2 class="text-2xl font-black mb-1">5. Value Investor Module</h2>
+        <p class="text-gray-400 text-sm mb-5">อ้างอิงจากหลักการของ Benjamin Graham (<em>The Intelligent Investor</em>), Warren Buffett, และ Peter Lynch (<em>One Up on Wall Street</em>) — ซื้อธุรกิจดีในราคายุติธรรม ไม่ใช่ซื้อหุ้นแพง</p>
+
+        <div class="callout callout-blue mb-6">
+          <div class="font-bold text-blue-300 mb-2">💡 ปรัชญา VI: Mr. Market คือผู้รับใช้ ไม่ใช่นาย</div>
+          <p class="text-sm text-gray-300 leading-relaxed">Benjamin Graham อุปมาว่าตลาดหุ้นเหมือน "Mr. Market" ที่เสนอราคาซื้อขายทุกวัน บางวันเขา Optimistic เสนอราคาสูงมาก บางวัน Pessimistic เสนอราคาต่ำมาก — หน้าที่ของคุณคือรอให้เขาเสนอราคาที่ต่ำกว่ามูลค่าที่แท้จริงมากพอ แล้วค่อยซื้อ ไม่ใช่ตาม mood ของเขา</p>
+        </div>
+
+        <!-- VI Quality Score -->
+        <h3 id="vi-score" class="section text-xl font-bold mb-3 mt-8">5.1 VI Quality Score (0–10 คะแนน)</h3>
+        <p class="text-gray-400 text-sm mb-4">ระบบแยก <strong>Growth Stock</strong> (EPS โต > 25% หรือ Revenue โต > 20%) ออกจาก <strong>Value/Defensive Stock</strong> แล้วใช้เกณฑ์คนละชุด</p>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden mb-4">
+          <div class="px-4 py-2 border-b border-gray-800">
+            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">10 เกณฑ์ VI Quality Score</span>
+          </div>
+          <div class="p-4 space-y-0">
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">1</div>
+              <div>
+                <div class="text-sm font-bold mb-0.5">ROE ≥ 15% <span class="text-gray-500 font-normal">(Return on Equity)</span></div>
+                <p class="text-xs text-gray-400">ผลตอบแทนต่อทุนผู้ถือหุ้น — Buffett ให้ความสำคัญมาก บริษัทที่ ROE สูงสม่ำเสมอ = มี Competitive Moat แท้จริง</p>
+                <div class="formula mt-1.5">ROE = Net Income / Shareholders' Equity × 100%</div>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">2</div>
+              <div>
+                <div class="text-sm font-bold mb-0.5">ROE ≥ 10% (ขั้นต่ำ)</div>
+                <p class="text-xs text-gray-400">เกณฑ์รองเพื่อให้คะแนนบางส่วนแม้ไม่ถึง 15% — บริษัทที่ ROE ต่ำกว่า 10% ถือว่าการบริหารทุนไม่มีประสิทธิภาพ</p>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">3</div>
+              <div>
+                <div class="text-sm font-bold mb-0.5">Revenue Growth > 0%</div>
+                <p class="text-xs text-gray-400">ยอดขายต้องโต — ธุรกิจที่หดตัวด้านรายได้มักสะท้อนปัญหาพื้นฐาน แม้กำไรอาจยังดูดีจากการลดต้นทุน</p>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">4</div>
+              <div>
+                <div class="text-sm font-bold mb-0.5">EPS Growth > 0%</div>
+                <p class="text-xs text-gray-400">กำไรต่อหุ้นต้องโต — ถ้า Revenue โตแต่ EPS ลดแสดงว่า Margin กำลังถูกกดดัน หรือบริษัทออกหุ้นใหม่ Dilute ผู้ถือหุ้น</p>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">5</div>
+              <div>
+                <div class="text-sm font-bold mb-0.5">P/E < 30 (Value) · PEG < 1.5 (Growth)</div>
+                <p class="text-xs text-gray-400">Value: ไม่จ่ายแพงเกินไปเทียบกับกำไร · Growth: Peter Lynch แนะนำ PEG &lt; 1.5 เพราะ P/E สูงของ Growth Stock ต้องดูเทียบกับ Growth Rate</p>
+                <div class="formula mt-1.5">PEG = P/E Ratio / EPS Growth%   <span class="text-gray-500">// &lt; 1.5 = fair for growth</span></div>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">6</div>
+              <div>
+                <div class="text-sm font-bold mb-0.5">P/E > 0 (มีกำไร)</div>
+                <p class="text-xs text-gray-400">บริษัทต้องมีกำไรจริง — หุ้นที่ P/E ติดลบหรือไม่มีกำไรเป็นการเก็งกำไร ไม่ใช่การลงทุนเชิงคุณค่า</p>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">7</div>
+              <div>
+                <div class="text-sm font-bold mb-0.5">P/B < 5 (Value) · ROE > P/B (Growth)</div>
+                <p class="text-xs text-gray-400">Value: ราคาไม่ควรแพงกว่ามูลค่าทางบัญชีมากเกินไป · Growth: ถ้า ROE > P/B แปลว่าบริษัทสร้างผลตอบแทนได้มากกว่าที่ตลาดจ่าย = ยังคุ้ม</p>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">8</div>
+              <div>
+                <div class="text-sm font-bold mb-0.5">Beta (ความผันผวน)</div>
+                <p class="text-xs text-gray-400">Value: Beta &lt; 1.2 = ผันผวนน้อยกว่าตลาด เหมาะกับการถือยาว · Growth: Beta อาจสูงได้ ระบบไม่หักคะแนนเพราะเป็นเรื่องปกติของ Tech</p>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">9</div>
+              <div>
+                <div class="text-sm font-bold mb-0.5">ROA > 5% (Return on Assets)</div>
+                <p class="text-xs text-gray-400">ใช้สินทรัพย์สร้างกำไรได้ดีแค่ไหน บริษัท Asset-heavy (โรงงาน โรงแรม) อาจมี ROA ต่ำตามธรรมชาติ ต้องดู Industry เปรียบเทียบด้วย</p>
+                <div class="formula mt-1.5">ROA = Net Income / Total Assets × 100%</div>
+              </div>
+            </div>
+
+            <div class="rule-row">
+              <div class="rule-num shrink-0">10</div>
+              <div>
+                <div class="text-sm font-bold mb-0.5">ตำแหน่งใน 52w Range</div>
+                <p class="text-xs text-gray-400">Value: ราคาอยู่ใน 40% ล่างของ 52w Range (ใกล้ Low = โอกาส MOS สูง) · Growth: อยู่ใน 40% บน (ใกล้ High = Momentum ยังดี)</p>
+                <div class="formula mt-1.5">posInRange = (price − low52) / (high52 − low52)</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-2 mb-6 text-center">
+          <div class="bg-green-900/30 border border-green-800/50 rounded-xl p-3"><div class="text-green-400 font-bold text-lg">8–10</div><div class="text-xs text-gray-400 mt-1">STRONG BUY 💎</div></div>
+          <div class="bg-blue-900/30 border border-blue-800/50 rounded-xl p-3"><div class="text-blue-400 font-bold text-lg">6–7</div><div class="text-xs text-gray-400 mt-1">BUY ✅</div></div>
+          <div class="bg-yellow-900/30 border border-yellow-800/50 rounded-xl p-3"><div class="text-yellow-400 font-bold text-lg">4–5</div><div class="text-xs text-gray-400 mt-1">WATCH 👀</div></div>
+          <div class="bg-red-900/30 border border-red-800/50 rounded-xl p-3"><div class="text-red-400 font-bold text-lg">0–3</div><div class="text-xs text-gray-400 mt-1">AVOID 🚫</div></div>
+        </div>
+
+        <div class="callout callout-yellow">
+          <p class="text-xs text-yellow-200">⚠️ <strong>Negative Equity Exception:</strong> บริษัทบางตัว (เช่น SBUX, MCD) มี Equity ติดลบเพราะซื้อหุ้นคืนสะสมมาก ทำให้ ROE และ P/B คำนวณได้แต่ตัวเลขไม่น่าเชื่อถือ ระบบจะแสดง warning และไม่หักคะแนนในข้อนั้น</p>
+        </div>
+
+        <!-- Fair Value -->
+        <h3 id="fair-value" class="section text-xl font-bold mb-3 mt-8">5.2 Fair Value — มูลค่าที่แท้จริง คืออะไร?</h3>
+        <p class="text-gray-400 text-sm mb-4"><strong>Fair Value</strong> (หรือ Intrinsic Value) คือ มูลค่าที่แท้จริงของบริษัท ที่ประเมินจากการวิเคราะห์พื้นฐาน <em>ไม่ใช่</em>ราคาตลาดที่ซื้อขายกันอยู่ ราคาตลาดจะวนเวียนอยู่รอบ Fair Value ขึ้นบ้างลงบ้างตาม sentiment — หน้าที่ของ VI คือซื้อเมื่อราคาตลาด <em>ต่ำกว่า</em> Fair Value มากพอ</p>
+
+        <div class="callout callout-blue mb-4">
+          <div class="font-bold text-blue-300 mb-2">💡 แอปไม่ได้คำนวณ Fair Value ให้ — เพราะอะไร?</div>
+          <p class="text-sm text-gray-300 leading-relaxed">Fair Value ขึ้นอยู่กับ <strong>assumptions ส่วนตัว</strong> เช่น growth rate ที่คาดหวัง, WACC ที่ใช้, จำนวนปีที่จะถือ — สองคนวิเคราะห์บริษัทเดียวกันอาจได้ Fair Value ต่างกันได้ 30–50% แอปให้คุณใส่ตัวเลขที่คุณ <em>เชื่อ</em> แล้วช่วยคำนวณว่าควรซื้อเท่าไหร่เมื่อเทียบกับราคาตลาด</p>
+        </div>
+
+        <h4 class="font-bold text-gray-200 mb-3">วิธีประเมิน Fair Value ที่นิยมใช้</h4>
+
+        <div class="space-y-3 mb-6">
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+              <span class="text-lg shrink-0">1️⃣</span>
+              <div>
+                <div class="font-bold text-white text-sm mb-1">Analyst Consensus Target Price (ง่ายสุด)</div>
+                <p class="text-xs text-gray-400">ดูจาก Bloomberg, Reuters, Seeking Alpha, หรือ brokerage research — เป็นค่าเฉลี่ยการประเมินของนักวิเคราะห์หลายคน เหมาะสำหรับผู้เริ่มต้น</p>
+                <div class="formula mt-2 text-xs">แหล่ง: Yahoo Finance (Analysts' Price Target), TradingView</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+              <span class="text-lg shrink-0">2️⃣</span>
+              <div>
+                <div class="font-bold text-white text-sm mb-1">Forward P/E Method (เร็ว ใช้บ่อย)</div>
+                <p class="text-xs text-gray-400 mb-2">ใช้ P/E ที่ "ยุติธรรม" ของ sector คูณกับ EPS ที่คาดว่าจะได้ปีหน้า (Forward EPS)</p>
+                <div class="formula">Fair Value = Fair P/E × Forward EPS
+
+<span class="text-gray-400">// ตัวอย่าง: บริษัท Consumer อิ่มตัว fair P/E ≈ 15–20x</span>
+<span class="text-gray-400">// EPS next year = $5 → Fair Value = 18 × $5 = $90</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+              <span class="text-lg shrink-0">3️⃣</span>
+              <div>
+                <div class="font-bold text-white text-sm mb-1">Graham Number (Benjamin Graham)</div>
+                <p class="text-xs text-gray-400 mb-2">สูตรง่ายของ Graham ที่ใช้ EPS และ Book Value — เหมาะกับ Value Stock ไม่เหมาะกับ Growth</p>
+                <div class="formula">Graham Number = √(22.5 × EPS × Book Value per Share)
+
+<span class="text-gray-400">// ตัวอย่าง: EPS = $4, Book Value = $25</span>
+<span class="text-gray-400">// Graham Number = √(22.5 × 4 × 25) = √2,250 ≈ $47.4</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+              <span class="text-lg shrink-0">4️⃣</span>
+              <div>
+                <div class="font-bold text-white text-sm mb-1">DCF — Discounted Cash Flow (แม่นสุด ยากสุด)</div>
+                <p class="text-xs text-gray-400 mb-2">ประมาณ Free Cash Flow ทุกปีในอนาคต แล้ว discount กลับมาเป็นมูลค่าปัจจุบัน ต้องการ assumptions มากที่สุด</p>
+                <div class="formula">Fair Value = Σ FCF_t / (1+r)^t + Terminal Value / (1+r)^N
+                                    ÷ shares outstanding
+
+<span class="text-gray-400">// r = Discount Rate (WACC ~8-10%), N = ปีที่ประมาณ (5-10 ปี)</span>
+<span class="text-gray-400">// Terminal Growth ≈ 2-3% (GDP long-term)</span></div>
+                <div class="callout callout-yellow mt-2">
+                  <p class="text-xs text-yellow-200">⚠️ DCF sensitive มาก — growth rate เปลี่ยน 2% → Fair Value เปลี่ยนได้ 30–50% เสมอ run 3 scenario: Bear / Base / Bull</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-green mb-6">
+          <div class="font-bold text-green-300 mb-2">✅ แนวทางปฏิบัติ: เลือกวิธีให้เหมาะกับหุ้น</div>
+          <div class="space-y-1 text-xs text-gray-300">
+            <div class="flex gap-2"><span class="text-green-400 shrink-0">Growth Stock</span><span>ใช้ Forward P/E หรือ PEG-implied value — Graham Number ไม่เหมาะเพราะ Book Value ต่ำ</span></div>
+            <div class="flex gap-2"><span class="text-blue-400 shrink-0">Value/Dividend</span><span>ใช้ Graham Number + DCF ร่วมกัน + เทียบ Analyst Target</span></div>
+            <div class="flex gap-2"><span class="text-yellow-400 shrink-0">ไม่แน่ใจ</span><span>ใช้ Analyst Target เป็น starting point แล้วปรับตาม VI Score ที่แอปคำนวณ</span></div>
+          </div>
+        </div>
+
+        <!-- MOS -->
+        <h3 id="mos" class="section text-xl font-bold mb-3 mt-8">5.3 Margin of Safety — ส่วนเผื่อความปลอดภัย</h3>
+        <p class="text-gray-400 text-sm mb-4">Benjamin Graham เสนอแนวคิดนี้ใน The Intelligent Investor (1949) — "ซื้อเฉพาะเมื่อราคาต่ำกว่ามูลค่าอย่างมีนัยสำคัญ" MOS คือ "ส่วนลด" จาก Fair Value ที่คุณประเมิน</p>
+
+        <div class="formula mb-4">
+MOS% = (FairValue − CurrentPrice) / FairValue × 100
+
+<span class="text-gray-400">// ตัวอย่าง: Fair Value $100, ราคาปัจจุบัน $70</span>
+MOS = (100 − 70) / 100 × 100 = 30%  ✅ ถึงเกณฑ์ซื้อ
+        </div>
+
+        <div class="space-y-2 mb-6">
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-gray-900 border border-gray-800">
+            <div class="text-lg shrink-0">🟢</div>
+            <div><div class="text-sm font-bold text-green-400">MOS &gt; 30% — BUY LARGE (100% ของ Max Position)</div><div class="text-xs text-gray-400">ราคาถูกมาก มีส่วนเผื่อความปลอดภัยสูง Graham แนะนำ 30–50%</div></div>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-gray-900 border border-gray-800">
+            <div class="text-lg shrink-0">🔵</div>
+            <div><div class="text-sm font-bold text-blue-400">MOS 20–30% — BUY MEDIUM+ (70%)</div><div class="text-xs text-gray-400">ราคาดี มี MOS พอสมควร เข้าได้แต่ไม่เต็มมือ</div></div>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-gray-900 border border-gray-800">
+            <div class="text-lg shrink-0">🔵</div>
+            <div><div class="text-sm font-bold text-blue-400">MOS 10–20% — BUY MEDIUM (50%)</div><div class="text-xs text-gray-400">ราคายังพอรับได้ ลงทุนครึ่งหนึ่งของแผน</div></div>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-gray-900 border border-gray-800">
+            <div class="text-lg shrink-0">🟡</div>
+            <div><div class="text-sm font-bold text-yellow-400">MOS 5–10% — BUY SMALL (30%)</div><div class="text-xs text-gray-400">เริ่มต้นน้อยๆ เพื่อ tracking รอราคาดีขึ้น</div></div>
+          </div>
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-gray-900 border border-gray-800">
+            <div class="text-lg shrink-0">🔴</div>
+            <div><div class="text-sm font-bold text-red-400">MOS &lt; 0% — TOO EXPENSIVE (0%)</div><div class="text-xs text-gray-400">ราคาแพงกว่า Fair Value แล้ว รอหรือข้าม</div></div>
+          </div>
+        </div>
+
+        <!-- VI Sizing -->
+        <h3 id="vi-sizing" class="section text-xl font-bold mb-3 mt-8">5.4 VI Position Sizing</h3>
+        <p class="text-gray-400 text-sm mb-4">VI ใช้ Fixed Allocation ไม่ใช่ 1% Risk Rule เพราะไม่มี Stop Loss แบบ Trader — แทนที่จะถือ Stop เป็นตัวกำหนด ใช้ "% สูงสุดต่อหุ้น 1 ตัว" แทน</p>
+
+        <div class="formula mb-4">
+<span class="text-gray-400">// Rule 1: Fixed Allocation (Hard Ceiling)</span>
+maxPosition = portfolio × (allocPct / 100)
+<span class="text-gray-500">// เช่น $10,000 × 10% = $1,000 max per stock</span>
+
+<span class="text-gray-400">// Rule 2: MOS Weighting (ลด/เพิ่มตาม MOS)</span>
+buyAmount = maxPosition × mosWeight
+<span class="text-gray-500">// mosWeight: 0.20 → 1.00 ตาม MOS tier</span>
+
+shares = buyAmount / currentPrice
+        </div>
+
+        <div class="callout callout-blue mb-6">
+          <p class="text-xs text-blue-200"><strong>ทำไม 2 Rules ไม่ใช่ 1?</strong> Rule 1 ป้องกัน Concentration Risk (ไม่ถือหุ้นตัวเดียวเกิน 10%) · Rule 2 ทำให้ซื้อมากเมื่อถูก ซื้อน้อยเมื่อแพง — ผลลัพธ์คือ Dollar-Cost Averaging ที่ "똑똑" กว่า เพราะน้ำหนักตาม Valuation</p>
+        </div>
+
+        <!-- Portfolio Reallocation -->
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6">
+          <h4 class="font-bold mb-2">📊 Portfolio Reallocation Logic</h4>
+          <p class="text-xs text-gray-400 mb-3">ระบบเปรียบเทียบราคาปัจจุบัน (จาก Sync Prices) กับ Fair Value ที่คุณตั้งไว้ แล้วแนะนำว่าควรทำอะไร</p>
+          <div class="space-y-2">
+            <div class="flex gap-2 text-xs"><span class="text-red-400 font-bold shrink-0">TRIM/SELL</span><span class="text-gray-400">ราคา > Fair Value × 1.05 (แพงเกินไป 5%)</span></div>
+            <div class="flex gap-2 text-xs"><span class="text-green-400 font-bold shrink-0">ADD MORE</span><span class="text-gray-400">MOS ยังเหลือ ≥ 20% (ยังถูกอยู่)</span></div>
+            <div class="flex gap-2 text-xs"><span class="text-blue-400 font-bold shrink-0">HOLD</span><span class="text-gray-400">MOS 5–20% (ใกล้ Fair Value รอดูทิศทาง)</span></div>
+            <div class="flex gap-2 text-xs"><span class="text-yellow-400 font-bold shrink-0">REVIEW</span><span class="text-gray-400">MOS < 5% (จ่อ Fair Value แล้ว ทบทวน thesis)</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════════ -->
+      <!-- 6. GLOSSARY -->
+      <!-- ════════════════════════════════════════════ -->
+      <section id="glossary" class="section">
+        <h2 class="text-2xl font-black mb-1">6. Glossary & สูตรสรุป</h2>
+        <p class="text-gray-400 text-sm mb-6">ตัวย่อและสูตรทั้งหมดในระบบ</p>
+
+        <div class="grid gap-4">
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <table class="w-full text-xs">
+              <thead><tr class="border-b border-gray-800 text-gray-500"><th class="text-left pb-2">คำ</th><th class="text-left pb-2">ความหมาย</th><th class="text-left pb-2">สูตร / ค่าที่ดี</th></tr></thead>
+              <tbody class="divide-y divide-gray-800">
+                <tr><td class="py-2 font-bold text-purple-300">MA50/150/200</td><td class="py-2 text-gray-300">Simple Moving Average 50/150/200 วัน</td><td class="py-2 text-gray-500">Σ close (n วัน) / n</td></tr>
+                <tr><td class="py-2 font-bold text-purple-300">ATR14</td><td class="py-2 text-gray-300">Average True Range 14 วัน (Wilder's)</td><td class="py-2 text-gray-500">ATR × 2.5 = stop</td></tr>
+                <tr><td class="py-2 font-bold text-purple-300">RS Rank</td><td class="py-2 text-gray-300">Relative Strength vs SPY (1 ปี)</td><td class="py-2 text-gray-500">≥ 70 ผ่าน, ≥ 80 ดี</td></tr>
+                <tr><td class="py-2 font-bold text-purple-300">VCP</td><td class="py-2 text-gray-300">Volatility Contraction Pattern</td><td class="py-2 text-gray-500">Volume แห้ง + Range แคบ</td></tr>
+                <tr><td class="py-2 font-bold text-blue-300">ROE</td><td class="py-2 text-gray-300">Return on Equity</td><td class="py-2 text-gray-500">≥ 15% ดี, ≥ 10% พอ</td></tr>
+                <tr><td class="py-2 font-bold text-blue-300">ROA</td><td class="py-2 text-gray-300">Return on Assets</td><td class="py-2 text-gray-500">≥ 5%</td></tr>
+                <tr><td class="py-2 font-bold text-blue-300">P/E</td><td class="py-2 text-gray-300">Price / Earnings per share</td><td class="py-2 text-gray-500">&lt; 30 (Value)</td></tr>
+                <tr><td class="py-2 font-bold text-blue-300">P/B</td><td class="py-2 text-gray-300">Price / Book Value per share</td><td class="py-2 text-gray-500">&lt; 5 (Value)</td></tr>
+                <tr><td class="py-2 font-bold text-blue-300">PEG</td><td class="py-2 text-gray-300">P/E ÷ EPS Growth %</td><td class="py-2 text-gray-500">&lt; 1.5 fair (Growth)</td></tr>
+                <tr><td class="py-2 font-bold text-blue-300">MOS</td><td class="py-2 text-gray-300">Margin of Safety</td><td class="py-2 text-gray-500">≥ 20–30%</td></tr>
+                <tr><td class="py-2 font-bold text-green-300">1R</td><td class="py-2 text-gray-300">1 Risk Unit = entry − stop</td><td class="py-2 text-gray-500">target ≥ 2R</td></tr>
+                <tr><td class="py-2 font-bold text-green-300">Profit Factor</td><td class="py-2 text-gray-300">Gross Profit / Gross Loss</td><td class="py-2 text-gray-500">≥ 1.5 ดี</td></tr>
+                <tr><td class="py-2 font-bold text-green-300">Portfolio Heat</td><td class="py-2 text-gray-300">ความเสี่ยงรวมทุก position</td><td class="py-2 text-gray-500">≤ 6–8%</td></tr>
+                <tr><td class="py-2 font-bold text-green-300">Proximity</td><td class="py-2 text-gray-300">% ใกล้ 52w High (0–1)</td><td class="py-2 text-gray-500">ยิ่งสูง = ใกล้ Breakout</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Disclaimer -->
+        <div class="callout callout-yellow mt-8">
+          <div class="font-bold text-yellow-300 mb-2">⚠️ ข้อควรระวัง (Disclaimer)</div>
+          <p class="text-xs text-gray-300 leading-relaxed">RiskFirst เป็นเครื่องมือช่วยตัดสินใจส่วนตัวเท่านั้น ไม่ใช่คำแนะนำการลงทุน ตัวเลขและสัญญาณทุกอย่างในระบบ <strong>ไม่การันตีกำไร</strong> การเทรดและลงทุนมีความเสี่ยงขาดทุนจริง ผู้ใช้เป็นผู้ตัดสินใจและรับผลเองทุกครั้ง สูตรและเกณฑ์ที่ใช้มาจากแหล่งสาธารณะและอ้างอิงได้ แต่ผลลัพธ์ในอดีตไม่รับประกันผลลัพธ์ในอนาคต</p>
+        </div>
+
+      </section>
+
+      <!-- Back button -->
+      <div class="text-center pt-4 pb-8">
+        <a href="./index.html" class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-bold px-6 py-3 rounded-xl transition-colors">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+          กลับไปใช้แอป
+        </a>
+      </div>
+
+    </main>
+  </div>
+
+</body>
+</html>

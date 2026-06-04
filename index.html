@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="./manifest.json">
+  <title>RiskFirst — Trading Assistant v2</title>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+  <link rel="stylesheet" href="./css/app.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module" src="./js/app.js?v=20260604c"></script>
+</head>
+<body>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[99999] flex flex-col gap-2 items-center pointer-events-none"></div>
+
+  <!-- Top Nav -->
+  <div class="glass-nav flex items-center gap-3">
+    <!-- Logo -->
+    <div class="flex items-center gap-2 shrink-0">
+      <div id="logo-icon" class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shrink-0">
+        RF
+      </div>
+      <h1 class="text-base font-bold tracking-tight hidden xs:block">RiskFirst</h1>
+    </div>
+
+    <!-- Module Switcher — center -->
+    <div class="flex-1 flex justify-center">
+      <div class="w-36">
+        <div class="seg-control">
+          <button id="btn-trader" class="active" onclick="switchModule('trader')">Trader</button>
+          <button id="btn-vi" onclick="switchModule('vi')">Value</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right group -->
+    <div class="flex items-center gap-1.5 shrink-0">
+      <!-- Capital Display (Trader) -->
+      <button id="btn-port-trader" onclick="openCapitalModal('trader')"
+              class="flex items-center gap-1 rounded-full px-2.5 py-1.5 transition-colors"
+              style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12)">
+        <span class="text-[9px] font-bold text-indigo-300 leading-none">PORT</span>
+        <span class="text-xs font-black text-white leading-none" id="global-capital-txt-trader">...</span>
+      </button>
+
+      <!-- Capital Display (VI) -->
+      <button id="btn-port-vi" onclick="openCapitalModal('vi')"
+              class="hidden flex items-center gap-1 rounded-full px-2.5 py-1.5 transition-colors"
+              style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.2)">
+        <span class="text-[9px] font-bold text-blue-500 leading-none">PORT</span>
+        <span class="text-xs font-black text-gray-800 leading-none" id="global-capital-txt-vi">...</span>
+      </button>
+
+      <!-- Guide Link -->
+      <a href="./guide.html" class="nav-icon-btn w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-95" title="คู่มือระบบ">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+      </a>
+
+      <!-- Settings Button -->
+      <button onclick="openGlobalLogicModal()" class="nav-icon-btn w-7 h-7 rounded-full flex items-center justify-center transition-all active:scale-95" title="ตั้งค่า API / Backup">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="px-4 py-4 pb-32">
+    
+    <!-- ============================================== -->
+    <!-- MODULE 1: TRADER (Dark Theme) -->
+    <!-- ============================================== -->
+    <div id="module-trader" class="module-view active">
+      
+      <!-- Market Regime -->
+      <div id="market-regime-banner" class="flex items-center justify-between mb-4 bg-green-500/10 border-l-4 border-green-500 rounded-r-lg p-3">
+        <div class="flex items-center gap-2">
+          <div class="pulse-dot"></div>
+          <span class="text-sm font-bold text-green-500">Market Regime: Loading...</span>
+        </div>
+        <span class="text-xs text-gray-400">ตรวจสอบ SPY & QQQ</span>
+      </div>
+
+      <!-- Trader Tabs: Scan, Risk -->
+      <div id="trader-scan" class="tab-view active fade-in">
+        
+        <div class="flex gap-2 mb-5">
+          <div class="relative flex-1">
+            <input type="text" id="trader-scan-input" placeholder="Ticker e.g. NVDA"
+                   class="input-elegant pl-11 uppercase tracking-widest font-bold"
+                   onkeydown="if(event.key==='Enter') scanStock()">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none text-current">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </span>
+          </div>
+          <button onclick="scanStock()" class="w-12 h-12 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl flex items-center justify-center shrink-0 transition-colors active:scale-95">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </button>
+        </div>
+
+        <!-- Scan Result Area (powered by Finnhub) -->
+        <div id="scan-result-area">
+          <div class="card text-center py-12">
+            <div class="flex items-center justify-center w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mx-auto mb-4">
+              <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="text-gray-500"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </div>
+            <p class="text-sm text-gray-400 mb-1">พิมพ์ ticker แล้วกด Enter หรือปุ่ม Search</p>
+            <p class="text-xs text-gray-600">ต้องการ Finnhub API Key — ตั้งค่าที่ <svg class="inline w-3 h-3 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trader Tabs: Watchlist -->
+      <div id="trader-watch" class="tab-view fade-in">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h2 class="text-xl font-bold flex items-center gap-2">
+              <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" class="text-yellow-400 shrink-0"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              My Watchlist
+            </h2>
+            <p class="text-xs text-gray-400 mt-0.5">หุ้นที่คุณเพิ่มจะถูกสแกนด้วยกฎ SEPA</p>
+          </div>
+          <button onclick="scanAllWatchlist()" class="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold py-2 px-3 rounded-xl transition-colors active:scale-95">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            Scan All
+          </button>
+        </div>
+
+        <div class="flex gap-2 mb-5">
+          <input type="text" id="watch-input" placeholder="NVDA, AAPL, MSFT — วางพร้อมกันได้" class="input-elegant flex-1 uppercase font-semibold text-sm text-center tracking-widest">
+          <button onclick="addWatchlist()" class="w-12 h-12 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl transition-colors flex items-center justify-center shrink-0 active:scale-95">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        
+        <div id="watch-list" class="space-y-3 pb-24">
+          <!-- Watchlist items injected by JS -->
+        </div>
+      </div>
+
+      <div id="trader-risk" class="tab-view fade-in">
+        <div class="mb-4">
+          <h2 class="text-xl font-bold mb-0.5">1% Risk Calculator</h2>
+          <p class="text-sm text-gray-400">Position Sizer · Capital-aware</p>
+        </div>
+
+        <div class="card space-y-3">
+          <!-- Row 1: Account Size | Risk % Pills -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-400 font-medium mb-1.5 flex items-center justify-between">
+                <span>Account Size ($)</span>
+                <span class="text-[10px] text-purple-400">= PORT</span>
+              </label>
+              <input type="number" id="calc-account-size" class="input-elegant font-mono">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 font-medium mb-1.5 flex justify-between">
+                <span>Risk %</span>
+                <span id="display-risk-pct" class="text-purple-400 font-semibold">1.0%</span>
+              </label>
+              <!-- hidden range keeps JS compatibility -->
+              <input type="range" id="calc-risk-pct" min="0.5" max="3" step="0.5" value="1" class="sr-only">
+              <div class="grid grid-cols-4 gap-1 bg-white/5 rounded-xl p-1 border border-white/10">
+                <button onclick="setRiskPct(0.5)" data-rpct="0.5" class="risk-pct-btn text-[11px] font-bold rounded-lg py-2 text-gray-400 transition-all">0.5%</button>
+                <button onclick="setRiskPct(1)"   data-rpct="1"   class="risk-pct-btn text-[11px] font-bold rounded-lg py-2 transition-all bg-purple-600 text-white shadow-sm">1%</button>
+                <button onclick="setRiskPct(2)"   data-rpct="2"   class="risk-pct-btn text-[11px] font-bold rounded-lg py-2 text-gray-400 transition-all">2%</button>
+                <button onclick="setRiskPct(3)"   data-rpct="3"   class="risk-pct-btn text-[11px] font-bold rounded-lg py-2 text-gray-400 transition-all">3%</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 2: Entry | Stop -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-400 font-medium mb-1.5 block">Entry Price</label>
+              <input type="number" id="calc-entry-price" value="875.40" class="input-elegant font-mono">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 font-medium mb-1.5 block">Stop Loss</label>
+              <input type="number" id="calc-stop-loss" value="813.90" class="input-elegant font-mono text-red-400 border-red-500/30">
+            </div>
+          </div>
+
+          <!-- Row 3: Target | Fractional -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-400 font-medium mb-1.5 block">Target Price</label>
+              <input type="number" id="calc-target-price" value="998.40" placeholder="Optional" class="input-elegant font-mono text-green-400 border-green-500/30">
+            </div>
+            <div class="flex flex-col justify-end pb-0.5">
+              <label class="text-xs text-gray-400 font-medium mb-1.5 block opacity-0 select-none">-</label>
+              <label for="calc-frac" class="input-elegant flex items-center gap-2.5 cursor-pointer py-3">
+                <input type="checkbox" id="calc-frac" class="accent-purple-500 w-4 h-4 shrink-0">
+                <span class="text-sm text-gray-400">Fractional</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Output -->
+          <div class="bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-xl p-4 border border-purple-500/20 text-center">
+            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Buy Shares</div>
+            <div id="out-shares" class="text-5xl font-black text-white mb-2">8</div>
+            <div class="text-xs text-gray-400 mb-3 bg-white/5 rounded-full inline-block px-3 py-1 border border-white/5">
+              Position: <span id="out-pos-val" class="font-bold text-white">$7,003</span>
+              <span class="mx-1 text-gray-600">·</span>
+              <span id="out-pos-pct" class="text-yellow-400 font-bold">14%</span> of Port
+            </div>
+            <div class="grid grid-cols-2 divide-x divide-white/10">
+              <div class="pr-2">
+                <div class="text-[10px] text-gray-500 mb-0.5">Max Loss</div>
+                <div id="out-risk-amt" class="font-bold text-lg text-red-400">-$492</div>
+              </div>
+              <div class="pl-2">
+                <div class="text-[10px] text-gray-500 mb-0.5">Max Gain</div>
+                <div id="out-reward-amt" class="font-bold text-lg text-green-400">+$984</div>
+                <div id="out-rr" class="text-[10px] text-gray-500 mt-0.5">R/R: 2.0x</div>
+              </div>
+            </div>
+          </div>
+
+          <button onclick="saveFromRiskCalc()" class="btn-primary flex items-center justify-center gap-2">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            บันทึกเข้า Journal
+          </button>
+        </div>
+      </div>
+      
+      <!-- Trader Tabs: Journal & Dashboard -->
+      <div id="trader-journal" class="tab-view fade-in">
+        <div class="flex justify-between items-center mb-5">
+          <div>
+            <h2 class="text-xl font-bold mb-0.5">Performance</h2>
+            <p class="text-sm text-gray-400">Your Trade Journal</p>
+          </div>
+        </div>
+
+        <!-- Dashboard Stats -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+          <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-2xl p-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="text-xs text-gray-400">Current Capital</div>
+              <button onclick="openSyncModal()" class="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded flex items-center gap-1 hover:bg-blue-500/30 transition-colors">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+                Sync
+              </button>
+            </div>
+            <div class="text-2xl font-black" id="dash-capital">$0.00</div>
+          </div>
+          <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-2xl p-4">
+            <div class="flex justify-between items-center mb-1">
+              <div class="text-xs text-gray-400">All-Time PnL</div>
+              <div id="dash-pnl-pct" class="text-xs px-2 py-0.5 rounded text-green-400 bg-green-400/10">+0.0%</div>
+            </div>
+            <div class="text-2xl font-bold text-green-400" id="dash-pnl">+$0.00</div>
+          </div>
+          <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-2xl p-4">
+            <div class="text-xs text-gray-400 mb-1">Win Rate</div>
+            <div class="text-xl font-bold text-blue-400" id="dash-winrate">0%</div>
+          </div>
+          <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-2xl p-4">
+            <div class="text-xs text-gray-400 mb-1">Total Trades</div>
+            <div class="text-xl font-bold" id="dash-trades-count">0</div>
+          </div>
+          <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-2xl p-4">
+            <div class="text-xs text-gray-400 mb-1">Avg Realized R/R</div>
+            <div class="text-xl font-bold text-yellow-400" id="dash-avg-rr">0.00R</div>
+          </div>
+          <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-2xl p-4">
+            <div class="text-xs text-gray-400 mb-1">Profit Factor</div>
+            <div class="text-xl font-bold text-purple-400" id="dash-pf">0.00</div>
+          </div>
+        </div>
+
+        <!-- Timeframe & Top Performers -->
+        <div class="mb-6">
+          <div class="flex justify-between items-end mb-3">
+            <h3 class="font-bold text-lg">Top Performers</h3>
+            <div class="seg-control w-48">
+              <button id="btn-tf-all" class="active" onclick="setTimeframe('all')">All</button>
+              <button id="btn-tf-month" onclick="setTimeframe('month')">1M</button>
+              <button id="btn-tf-week" onclick="setTimeframe('week')">1W</button>
+            </div>
+          </div>
+          <div id="dash-top-performers" class="space-y-2">
+            <!-- Injected by JS -->
+            <div class="text-center text-gray-500 text-sm py-4">No data yet.</div>
+          </div>
+        </div>
+
+        <!-- History List -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-lg">Trade History</h3>
+            <button id="journal-sync-btn" onclick="syncJournalPrices()"
+                    class="text-xs bg-blue-500/20 text-blue-400 px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-blue-500/30 transition-colors font-medium">
+              🔄 Sync ราคา
+            </button>
+          </div>
+          <div id="journal-list" class="space-y-3 pb-24">
+            <div class="text-center text-gray-500 text-sm py-10">No trades logged yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ============================================== -->
+    <!-- MODULE 2: VALUE INVESTOR (Light Theme) -->
+    <!-- ============================================== -->
+    <div id="module-vi" class="module-view fade-in text-gray-800">
+      
+      <!-- VI SCAN TAB -->
+      <div id="vi-scan" class="tab-view active">
+        <div class="flex gap-2 mb-5">
+          <div class="relative flex-1">
+            <input type="text" id="vi-scan-input" placeholder="Ticker e.g. AAPL"
+                   class="input-elegant pl-11 uppercase tracking-widest font-bold"
+                   style="background:#fff;border-color:#d1d5db;color:#111"
+                   onkeydown="if(event.key==='Enter') scanVI()">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none text-current">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </span>
+          </div>
+          <button onclick="scanVI()" class="w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl flex items-center justify-center shrink-0 transition-colors active:scale-95">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </button>
+        </div>
+        <div id="vi-scan-result-area">
+          <div class="card text-center py-12" style="background:#fff;border-color:#e5e7eb">
+            <div class="flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-50 border border-blue-100 mx-auto mb-4">
+              <svg width="28" height="28" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="18" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="2" y="13" width="4" height="8" rx="1"/></svg>
+            </div>
+            <p class="text-sm text-gray-500 mb-1">พิมพ์ ticker แล้วกด Enter หรือปุ่ม Search</p>
+            <p class="text-xs text-gray-400">ดึง Valuation & Quality metrics จาก Finnhub</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- VI WATCH TAB -->
+      <div id="vi-watch" class="tab-view">
+        <h2 class="text-xl font-bold mb-0.5 text-gray-800 flex items-center gap-2">
+          <svg width="18" height="18" fill="#f59e0b" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          Value Watchlist
+        </h2>
+        <p class="text-sm text-gray-500 mb-5">หุ้นพื้นฐานดี รอราคาในโซน Margin of Safety</p>
+
+        <div class="flex gap-2 mb-5">
+          <input type="text" id="vi-watch-input" placeholder="AAPL, MSFT, BRK.B — วางพร้อมกันได้" class="input-elegant flex-1 uppercase font-semibold text-sm text-center tracking-widest bg-white border-gray-300">
+          <button onclick="addWatchlist('vi')" class="w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl transition-colors flex items-center justify-center shrink-0 active:scale-95">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        
+        <div id="vi-watch-list" class="space-y-3 pb-24">
+          <div class="text-center text-gray-400 text-sm py-10">No stocks in VI watchlist.</div>
+        </div>
+      </div>
+
+      <!-- VI JOURNAL TAB -->
+      <div id="vi-journal" class="tab-view">
+        <div class="flex justify-between items-center mb-5">
+          <div>
+            <h2 class="text-xl font-bold mb-0.5 text-gray-800">Investment Journal</h2>
+            <p class="text-sm text-gray-500">บันทึกการลงทุนและเงินปันผล</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="vi-journal-sync-btn" onclick="syncJournalPrices()"
+                    class="bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-bold py-2 px-3 rounded-xl transition-colors border border-blue-200 flex items-center gap-1.5">
+              🔄 Sync ราคา
+            </button>
+            <button onclick="logDividend()" class="bg-green-100 hover:bg-green-200 text-green-700 text-xs font-bold py-2 px-3 rounded-xl transition-colors shadow-sm border border-green-200 flex items-center gap-1.5">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+              ปันผล
+            </button>
+          </div>
+        </div>
+
+        <div id="vi-journal-list" class="space-y-3 pb-24">
+          <div class="text-center text-gray-400 text-sm py-10">No investments logged yet.</div>
+        </div>
+      </div>
+
+      <!-- VI RISK / ALLOCATION TAB -->
+      <div id="vi-risk" class="tab-view">
+        <h2 class="text-xl font-bold mb-0.5 text-gray-800">Position Sizing (VI)</h2>
+        <p class="text-sm text-gray-500 mb-5">คำนวณสัดส่วนการเข้าซื้อหุ้นพื้นฐาน</p>
+
+        <!-- Hidden inputs — values managed by Settings modal -->
+        <input type="number" id="vi-alloc-pct" class="hidden" min="1" max="100" step="1" value="10">
+        <input type="checkbox" id="vi-frac" class="hidden">
+
+        <!-- MOS Calculator — main workflow card -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-24">
+
+          <!-- Context bar: max position from Settings -->
+          <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+            <div>
+              <div class="font-bold text-gray-800">Margin of Safety</div>
+              <div class="text-xs text-gray-400 mt-0.5">คำนวณน้ำหนักการซื้อตาม MOS</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] text-gray-400 font-medium">วงเงินสูงสุด / หุ้น</div>
+              <div id="vi-alloc-result" class="text-base font-black text-blue-600">$0.00</div>
+              <button onclick="openGlobalLogicModal()" class="text-[10px] text-blue-400 underline mt-0.5 block">เปลี่ยนใน ⚙️</button>
+            </div>
+          </div>
+          <div id="vi-alloc-shares" class="hidden"></div>
+
+          <p class="text-xs text-gray-400 mb-4">ใส่ราคาของหุ้นที่คุณ Scan มาแล้ว ระบบจะคำนวณว่าควรซื้อเท่าไหร่</p>
+          
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="text-xs font-bold text-gray-400 flex items-center gap-1 mb-1">
+                Fair Value ($)
+                <button type="button" onclick="showToast('Fair Value = มูลค่าที่แท้จริงของธุรกิจ ที่คุณประเมินจากการวิเคราะห์พื้นฐาน — ไม่ใช่ราคาตลาด แอปไม่ได้คำนวณให้เพราะขึ้นอยู่กับ assumptions ของแต่ละคน', 'info')" class="text-blue-400 hover:text-blue-600 leading-none">ℹ️</button>
+              </label>
+              <input type="number" id="vi-mos-fair" placeholder="0.00" class="input-elegant bg-gray-50 border border-gray-200 text-gray-800 w-full text-lg font-bold">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-gray-400 block mb-1">Current Price ($)</label>
+              <input type="number" id="vi-mos-price" placeholder="0.00" class="input-elegant bg-gray-50 border border-gray-200 text-gray-800 w-full text-lg font-bold">
+            </div>
+          </div>
+          
+          <!-- MoS Result -->
+          <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col items-center justify-center mb-4">
+            <div class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1">Margin of Safety</div>
+            <div id="vi-mos-pct" class="text-3xl font-black text-indigo-700 mb-2">0.0%</div>
+            <div id="vi-mos-recommend" class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-600">
+              Waiting for input...
+            </div>
+          </div>
+
+          <!-- Recommended Buy (Rule 1 × Rule 2) -->
+          <div id="vi-buy-result" class="hidden mb-4 rounded-2xl border p-4 border-blue-100" style="background:#f0f7ff">
+            <div class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">💡 ไม้ที่แนะนำ (Rule 1 × Rule 2)</div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-sm text-gray-500">ควรซื้อวันนี้</span>
+              <span id="vi-buy-amount" class="text-2xl font-black text-blue-700">—</span>
+            </div>
+            <div id="vi-shares-result" class="text-sm font-bold mb-2"></div>
+            <div id="vi-shares-warning" class="hidden text-xs font-bold text-orange-600 bg-orange-50 rounded-xl px-3 py-2 border border-orange-200"></div>
+          </div>
+
+          <!-- Safety Net Badges -->
+          <div id="vi-safety-badges" class="hidden mb-4 space-y-2"></div>
+
+          <button onclick="saveFromVIRisk()" class="w-full py-3.5 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2" style="background:#1d4ed8;color:#fff">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            บันทึกเข้า VI Journal
+          </button>
+        </div>
+
+        <!-- Portfolio Reallocation -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-24">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-gray-800 flex items-center gap-2">
+              <span class="bg-purple-100 text-purple-600 w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
+              Portfolio Reallocation
+            </h3>
+            <button onclick="syncPrices()" class="bg-transparent hover:bg-gray-50 text-gray-600 border border-gray-300 text-xs font-bold py-1.5 px-3 rounded-full transition-colors flex items-center gap-1">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            Sync Prices
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 mb-4">ปรับสมดุลพอร์ต (Rebalance) เมื่อราคาหุ้นเปลี่ยนไปจากเป้าหมาย</p>
+          
+          <div id="vi-realloc-list" class="space-y-3">
+            <div class="text-center text-gray-400 text-sm py-4">No open positions to rebalance.</div>
+          </div>
+        </div>
+      </div>
+
+    </div> <!-- End of module-vi -->
+
+  </div> <!-- End of main container (px-4 py-4 pb-32) -->
+
+  <!-- VI Journal FAB (controlled by switchTab) -->
+  <!-- VI Journal FAB removed — entries come from Risk/Port only -->
+
+  <!-- Bottom Nav -->
+  <div class="glass-bottom">
+    <div id="nav-scan" class="nav-item active" onclick="switchTab('scan')">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      <span>Scan</span>
+    </div>
+    <div id="nav-watch" class="nav-item" onclick="switchTab('watch')">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
+      <span>Watch</span>
+    </div>
+    <div id="nav-risk" class="nav-item" onclick="switchTab('risk')">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+      <span id="nav-risk-txt">Risk/Port</span>
+    </div>
+    <div id="nav-journal" class="nav-item" onclick="switchTab('journal')">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+      <span>Journal</span>
+    </div>
+  </div>
+
+  <!-- Global Logic Modal (Wiki) -->
+  <div id="global-logic-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex flex-col justify-end transition-opacity opacity-0">
+    <div class="bg-[var(--card-dark)] w-full rounded-t-3xl h-[80vh] flex flex-col border-t border-[var(--border-dark)] transform translate-y-full transition-transform" id="global-logic-sheet">
+      <div class="p-4 border-b border-[var(--border-dark)] flex justify-between items-center shrink-0">
+        <h2 class="text-xl font-bold">ℹ️ คู่มือระบบ RiskFirst</h2>
+        <button onclick="closeGlobalLogicModal()" class="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center font-bold text-gray-400 hover:text-white">✕</button>
+      </div>
+      <div class="p-5 overflow-y-auto pb-10 flex-1">
+
+        <!-- ── TRADER MODULE ── -->
+        <h3 class="font-bold text-[var(--accent-primary)] mb-2">⚡ Trader Module</h3>
+        <p class="text-sm text-[var(--text-muted)] mb-3">Momentum trading สไตล์ Mark Minervini — หาหุ้นที่กำลังอยู่ในขาขึ้นรอบใหญ่ก่อนใคร</p>
+
+        <!-- Market Regime -->
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 mb-3">
+          <h4 class="font-bold mb-1 flex items-center gap-2">🌡️ Market Regime <span class="text-[10px] font-normal text-gray-400">ต้องการ Twelve Data Key</span></h4>
+          <p class="text-xs text-[var(--text-muted)]">ตรวจสอบ <b>SPY & QQQ vs MA200</b> ทุก 6 ชั่วโมง</p>
+          <div class="mt-2 space-y-1">
+            <div class="flex items-center gap-2 text-xs"><span class="text-green-400 font-bold">BULL</span><span class="text-[var(--text-muted)]">— ทั้งคู่อยู่เหนือ MA200 → เปิด Long ได้ตามปกติ</span></div>
+            <div class="flex items-center gap-2 text-xs"><span class="text-red-400 font-bold">BEAR</span><span class="text-[var(--text-muted)]">— อย่างน้อยหนึ่งตัวต่ำกว่า MA200 → งดเปิด Long ใหม่</span></div>
+          </div>
+        </div>
+
+        <!-- SEPA -->
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 mb-3">
+          <h4 class="font-bold mb-2">📋 SEPA Trend Template (8 เกณฑ์)</h4>
+          <p class="text-xs text-[var(--text-muted)] mb-2">ผ่านครบ 8/8 = PASS · ยิ่งผ่านเยอะยิ่งได้คะแนนสูง</p>
+          <ul class="text-xs space-y-1.5 text-[var(--text-main)]">
+            <li class="flex gap-2"><span class="text-gray-400 shrink-0">1.</span>ราคา > MA150 และ MA200</li>
+            <li class="flex gap-2"><span class="text-gray-400 shrink-0">2.</span>MA150 > MA200 (เรียงตัวขาขึ้น)</li>
+            <li class="flex gap-2"><span class="text-gray-400 shrink-0">3.</span>MA200 ขาขึ้นต่อเนื่อง ≥ 1 เดือน</li>
+            <li class="flex gap-2"><span class="text-gray-400 shrink-0">4.</span>MA50 > MA150 และ MA200</li>
+            <li class="flex gap-2"><span class="text-gray-400 shrink-0">5.</span>ราคา > MA50</li>
+            <li class="flex gap-2"><span class="text-gray-400 shrink-0">6.</span>ราคาสูงกว่า 52w Low ≥ 30%</li>
+            <li class="flex gap-2"><span class="text-gray-400 shrink-0">7.</span>ราคาห่างจาก 52w High ≤ 25%</li>
+            <li class="flex gap-2"><span class="text-gray-400 shrink-0">8.</span>RS Rating ≥ 70</li>
+          </ul>
+        </div>
+
+        <!-- Earnings Warning -->
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 mb-3">
+          <h4 class="font-bold mb-2">📅 Earnings Window Detection</h4>
+          <p class="text-xs text-[var(--text-muted)] mb-2">ระบบประมาณวันงบโดยบวก 90 วันจากงบล่าสุด (ไม่ใช่วันที่แน่นอน)</p>
+          <div class="space-y-1.5">
+            <div class="flex items-start gap-2 text-xs"><span class="shrink-0">🚫</span><span><b class="text-red-400">0–5 วัน:</b> ห้ามเข้า — ราคาอาจ Gap ได้ทั้ง 2 ทาง</span></div>
+            <div class="flex items-start gap-2 text-xs"><span class="shrink-0">⚠️</span><span><b class="text-yellow-400">6–14 วัน:</b> ระวัง — ใช้ Stop กว้างขึ้น (3.0×ATR)</span></div>
+            <div class="flex items-start gap-2 text-xs"><span class="shrink-0">🎯</span><span><b class="text-green-400">3–45 วันหลังงบ:</b> Post-Earnings Setup — High-Probability ของ Minervini</span></div>
+          </div>
+        </div>
+
+        <!-- Composite Score -->
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 mb-3">
+          <h4 class="font-bold mb-2">🏆 Composite Score & Scan All</h4>
+          <p class="text-xs text-[var(--text-muted)] mb-2">กด <b>Scan All</b> ใน Watchlist → ระบบดึงข้อมูลทุกตัวแล้วจัดอันดับ (0–100 คะแนน)</p>
+          <ul class="text-xs space-y-1.5 text-[var(--text-main)]">
+            <li><span class="text-purple-400 font-bold">40%</span> RS Rank — ชนะตลาดแค่ไหน (เทียบ SPY 252 bars)</li>
+            <li><span class="text-green-400 font-bold">25%</span> SEPA Score — ผ่านกี่ข้อจาก 8</li>
+            <li><span class="text-orange-400 font-bold">25%</span> Proximity to 52w High — ใกล้ Breakout แค่ไหน</li>
+            <li><span class="text-blue-400 font-bold">10%</span> Volume Dry-up — แรงขายเหือดแห้งหรือยัง (VCP)</li>
+          </ul>
+        </div>
+
+        <!-- ATR Stop + Risk Calc -->
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 mb-6">
+          <h4 class="font-bold mb-2">📐 ATR Stop + 1% Risk Calculator</h4>
+          <ul class="text-xs space-y-1.5 text-[var(--text-muted)]">
+            <li><b class="text-[var(--text-main)]">ATR Stop</b> = Entry − (ATR14 × 2.5) คำนวณด้วย Wilder's Smoothing จาก candle จริง</li>
+            <li><b class="text-[var(--text-main)]">Risk 1%</b> = จำกัดความเสียหายต่อ Trade ที่ 1% ของพอร์ต → คำนวณจำนวนหุ้นอัตโนมัติ</li>
+            <li><b class="text-[var(--text-main)]">Target</b> = เลือกได้ระหว่าง 2R / 3R / 52w High</li>
+          </ul>
+        </div>
+
+        <!-- ── VI MODULE ── -->
+        <h3 class="font-bold text-blue-500 mb-2">💎 Value Investor Module</h3>
+        <p class="text-sm text-[var(--text-muted)] mb-3">ดูพื้นฐานหุ้นจาก Finnhub metrics จริง — ไม่ใช่ข้อมูล mock</p>
+
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 mb-3">
+          <h4 class="font-bold mb-2">📊 VI Quality Score (0–10 คะแนน)</h4>
+          <p class="text-xs text-[var(--text-muted)] mb-2">ระบบจะแยก <b>Growth vs Value</b> อัตโนมัติแล้วปรับเกณฑ์ให้เหมาะ</p>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[var(--text-main)]">
+            <div>• ROE ≥ 15% / 10%</div>
+            <div>• Revenue Growth > 0%</div>
+            <div>• EPS Growth > 0%</div>
+            <div>• มีกำไร (P/E > 0)</div>
+            <div>• PEG &lt; 1.5 (Growth)</div>
+            <div>• P/E &lt; 30 (Value)</div>
+            <div>• P/B หรือ ROE > P/B</div>
+            <div>• Beta (ตามประเภท)</div>
+            <div>• ROA > 5%</div>
+            <div>• ตำแหน่งใน 52w Range</div>
+          </div>
+          <div class="mt-3 flex gap-2 flex-wrap text-[10px]">
+            <span class="bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-bold">8–10 STRONG BUY</span>
+            <span class="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded font-bold">6–7 BUY</span>
+            <span class="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded font-bold">4–5 WATCH</span>
+            <span class="bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold">0–3 AVOID</span>
+          </div>
+        </div>
+
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 mb-6">
+          <h4 class="font-bold mb-2">📐 Margin of Safety + Position Sizing</h4>
+          <ul class="text-xs space-y-1.5 text-[var(--text-muted)]">
+            <li><b class="text-[var(--text-main)]">MOS%</b> = (Fair Value − ราคาปัจจุบัน) / Fair Value × 100</li>
+            <li><b class="text-[var(--text-main)]">Max Position</b> = ทุน × % ที่กำหนด (Fixed Allocation)</li>
+            <li><b class="text-[var(--text-main)]">Buy Amount</b> = Max Position × น้ำหนักตาม MOS tier (20%–100%)</li>
+            <li class="pt-1">MOS > 30% → BUY LARGE (100%) · 20–30% → BUY MEDIUM+ (70%)</li>
+            <li>MOS 10–20% → BUY MEDIUM (50%) · 5–10% → BUY SMALL (30%)</li>
+          </ul>
+        </div>
+
+        <!-- ── GLOSSARY ── -->
+        <h3 class="font-bold text-yellow-500 mb-2">📖 Glossary</h3>
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 space-y-3 mb-6">
+          <div>
+            <h4 class="font-bold text-xs text-[var(--text-main)]">RS Rank (Relative Strength)</h4>
+            <p class="text-xs text-[var(--text-muted)]">คะแนน 1–99 เทียบผลตอบแทน 1 ปีกับ SPY · 94 = ชนะหุ้น 94% ในตลาด</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-xs text-[var(--text-main)]">VCP (Volatility Contraction Pattern)</h4>
+            <p class="text-xs text-[var(--text-muted)]">ความผันผวนและ Volume แห้งลงเรื่อยๆ — แรงขายหมด รอ Breakout</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-xs text-[var(--text-main)]">R-Multiple (1R)</h4>
+            <p class="text-xs text-[var(--text-muted)]">1R = ระยะห่างระหว่าง Entry กับ Stop · 2R = กำไรเท่ากับ 2 เท่าของความเสี่ยง</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-xs text-[var(--text-main)]">Profit Factor</h4>
+            <p class="text-xs text-[var(--text-muted)]">กำไรรวม ÷ ขาดทุนรวม · > 1.5 = ระบบมี Edge · > 2.0 = ดีมาก</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-xs text-[var(--text-main)]">ATR (Average True Range)</h4>
+            <p class="text-xs text-[var(--text-muted)]">ความผันผวนเฉลี่ย 14 วัน (Wilder's Smoothing) · ใช้วาง Stop ให้เหมาะกับหุ้นแต่ละตัว</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-xs text-[var(--text-main)]">Margin of Safety</h4>
+            <p class="text-xs text-[var(--text-muted)]">ส่วนลดจาก Fair Value ที่คุณประเมิน · ยิ่งมาก = เสี่ยงน้อย upside มาก</p>
+          </div>
+          <div>
+            <h4 class="font-bold text-xs text-[var(--text-main)]">PEG Ratio (Peter Lynch)</h4>
+            <p class="text-xs text-[var(--text-muted)]">P/E ÷ EPS Growth% · < 1.5 = ราคายุติธรรมเทียบกับการเติบโต · ใช้กับ Growth Stock</p>
+          </div>
+        </div>
+
+        <!-- ── API SETTINGS ── -->
+        <h3 class="font-bold text-teal-500 mb-2">⚙️ API Settings</h3>
+        <p class="text-sm text-[var(--text-muted)] mb-3">ต้องการ 2 keys (ฟรีทั้งคู่) · เก็บใน browser เท่านั้น ไม่ส่งออกไปไหน</p>
+
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 space-y-4 mb-6">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-bold bg-green-500/20 text-green-400 px-2 py-0.5 rounded">Finnhub</span>
+              <label class="text-xs text-[var(--text-muted)] font-bold">Finnhub API Key</label>
+            </div>
+            <input type="password" id="input-api-key" placeholder="Enter Finnhub API Key" class="input-elegant w-full bg-[var(--card-dark)]">
+            <p class="text-[10px] text-gray-500 mt-1">ฟรีที่ <a href="https://finnhub.io/register" target="_blank" class="text-teal-400 hover:underline">finnhub.io</a> · ใช้สำหรับ: ราคา, company profile, VI metrics, earnings dates</p>
+          </div>
+
+          <div class="border-t border-[var(--border-dark)] pt-4">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-bold bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded">Twelve Data</span>
+              <label class="text-xs text-[var(--text-muted)] font-bold">Twelve Data API Key</label>
+            </div>
+            <input type="password" id="input-twelvedata-key" placeholder="Enter Twelve Data API Key" class="input-elegant w-full bg-[var(--card-dark)]">
+            <p class="text-[10px] text-gray-500 mt-1">ฟรี 800 req/day ที่ <a href="https://twelvedata.com/register" target="_blank" class="text-teal-400 hover:underline">twelvedata.com</a> · ใช้สำหรับ: MA50/150/200, ATR, Market Regime (SPY/QQQ)</p>
+          </div>
+
+          <button onclick="saveApiKey()" class="w-full bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded-xl py-2 text-sm font-bold hover:bg-teal-500/20 transition-colors flex items-center justify-center gap-2">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save API Keys
+          </button>
+        </div>
+
+        <!-- ── VI SETTINGS ── -->
+        <h3 class="font-bold text-blue-500 mb-2 mt-6">💎 VI Settings</h3>
+        <p class="text-sm text-[var(--text-muted)] mb-4">ตั้งค่าครั้งเดียว — บันทึกอัตโนมัติ ใช้ใน Position Sizing ทุกครั้ง</p>
+
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 space-y-4 mb-6">
+          <!-- Max % per Stock -->
+          <div>
+            <div class="text-xs font-semibold text-[var(--text-muted)] mb-2">สัดส่วนสูงสุดต่อหุ้น 1 ตัว (% ของพอร์ต)</div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-[var(--text-muted)]">สูงสุด</span>
+              <div class="flex items-center gap-1 bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-2">
+                <input type="number" id="vi-alloc-pct-settings" min="1" max="100" step="1" value="10"
+                       class="w-10 text-center text-lg font-black text-blue-400 bg-transparent outline-none border-none"
+                       style="appearance:textfield;-moz-appearance:textfield;"
+                       oninput="syncVIAllocPct(this.value)">
+                <span class="text-sm font-bold text-blue-400">%</span>
+              </div>
+              <span class="text-sm text-[var(--text-muted)]">ของพอร์ต</span>
+              <span class="text-xs text-gray-500 ml-auto">= <span id="vi-alloc-preview" class="font-bold text-blue-400">$0</span></span>
+            </div>
+            <p class="text-[10px] text-gray-500 mt-1.5">เช่น 10% = ซื้อหุ้นตัวเดียวได้สูงสุด 10% ของพอร์ต (หลัก Diversification)</p>
+          </div>
+
+          <!-- Fractional Shares -->
+          <label for="vi-frac-settings" class="flex items-center gap-3 cursor-pointer border-t border-[var(--border-dark)] pt-4">
+            <input type="checkbox" id="vi-frac-settings" class="accent-blue-500 w-4 h-4 shrink-0"
+                   onchange="syncVIFrac(this.checked)">
+            <div>
+              <div class="text-sm font-medium text-[var(--text-main)]">Fractional Shares</div>
+              <div class="text-[11px] text-[var(--text-muted)]">ซื้อหุ้นเป็นทศนิยมได้ — ต้อง broker ที่รองรับ (IBKR, Alpaca)</div>
+            </div>
+          </label>
+        </div>
+
+        <!-- ── BACKUP ── -->
+        <h3 class="font-bold text-red-500 mb-2">💾 Backup & Restore</h3>
+        <p class="text-sm text-[var(--text-muted)] mb-3">ข้อมูลทั้งหมดอยู่ใน Browser เท่านั้น — ล้าง cache หรือเปลี่ยนอุปกรณ์จะหายหมด</p>
+        <p class="text-xs text-yellow-400 mb-3">⚠️ แนะนำ Export ทุกครั้งหลังมีเทรดใหม่</p>
+
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 space-y-3">
+          <button onclick="exportBackup()" class="w-full bg-white/10 text-white border border-white/20 rounded-xl py-3 text-sm font-bold hover:bg-white/20 transition-colors flex justify-center items-center gap-2">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export Backup (JSON)
+          </button>
+          <div class="relative w-full">
+            <input type="file" id="import-file" accept=".json" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="importBackup(event)">
+            <button class="w-full bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl py-3 text-sm font-bold hover:bg-red-500/20 transition-colors flex justify-center items-center gap-2">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Import Backup (Overwrite ทั้งหมด)
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Stock Logic Modal (Inspect) -->
+  <div id="stock-logic-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex flex-col justify-end transition-opacity opacity-0">
+    <div class="bg-[var(--card-dark)] w-full rounded-t-3xl h-[70vh] flex flex-col border-t border-[var(--border-dark)] transform translate-y-full transition-transform" id="stock-logic-sheet">
+      <div class="p-4 border-b border-[var(--border-dark)] flex justify-between items-center shrink-0">
+        <div>
+          <h2 class="text-xl font-bold" id="inspect-title">NVDA Logic</h2>
+          <div class="text-xs text-[var(--text-muted)]" id="inspect-subtitle">SEPA Template Checklist</div>
+        </div>
+        <button onclick="closeStockLogicModal()" class="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center font-bold text-gray-400 hover:text-white">✕</button>
+      </div>
+      <div class="p-5 overflow-y-auto pb-10 flex-1" id="inspect-content">
+        <!-- Content injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Capital Modal -->
+  <div id="capital-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex flex-col justify-center items-center px-4 transition-opacity opacity-0 pointer-events-auto">
+    <div class="bg-[var(--card-dark)] w-full max-w-sm rounded-2xl border border-[var(--border-dark)] shadow-2xl p-5 transform scale-95 transition-transform" id="capital-sheet">
+      <h3 class="text-lg font-bold mb-4">Edit Total Capital</h3>
+      <input type="number" id="input-edit-capital" class="input-elegant w-full text-2xl font-bold text-center mb-4" value="550">
+      <div class="flex gap-2">
+          <button onclick="closeCapitalModal()" class="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 font-bold transition-colors">Cancel</button>
+        <button onclick="saveCapital()" class="flex-1 py-3 rounded-xl btn-primary font-bold">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Trade Modal -->
+  <!-- Dividend Modal -->
+  <div id="dividend-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex flex-col justify-end transition-opacity opacity-0">
+    <div id="dividend-sheet" class="bg-white w-full rounded-t-3xl border-t border-gray-200 p-5 transform translate-y-full transition-transform">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-gray-800">💵 บันทึกเงินปันผล</h3>
+        <button onclick="closeDividendModal()" class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500">✕</button>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs font-bold text-gray-400 block mb-1">หุ้นที่ได้รับปันผล</label>
+        <select id="div-symbol" class="w-full rounded-xl border border-gray-200 text-gray-800 font-bold text-base px-3 py-3 focus:outline-none focus:border-blue-400 bg-gray-50">
+          <option value="">-- เลือกหุ้น --</option>
+        </select>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs font-bold text-gray-400 block mb-1">จำนวนเงินปันผลที่ได้รับ ($)</label>
+        <input type="number" id="div-amount" placeholder="0.00" step="0.01"
+               class="w-full rounded-xl border border-gray-200 text-gray-800 font-bold text-xl px-3 py-3 focus:outline-none focus:border-blue-400 bg-gray-50">
+      </div>
+      <div id="div-preview" class="mb-4 rounded-xl p-3 bg-green-50 border border-green-100 text-sm text-green-700 hidden">
+        พอร์ตจะเพิ่มขึ้น <span id="div-preview-amt" class="font-black"></span>
+      </div>
+      <button onclick="confirmDividend()" class="w-full py-3.5 rounded-xl font-bold text-sm" style="background:#1d4ed8;color:#fff">
+        บันทึกปันผล
+      </button>
+    </div>
+  </div>
+
+  <!-- Quick Save Modal (from Risk tab) -->
+  <div id="quick-save-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex flex-col justify-end transition-opacity opacity-0">
+    <div id="quick-save-sheet" class="bg-[var(--card-dark)] w-full rounded-t-3xl border-t border-[var(--border-dark)] p-5 transform translate-y-full transition-transform">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold">💾 บันทึก Open Position</h3>
+        <button onclick="closeQuickSave()" class="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center font-bold text-gray-400 hover:text-white">✕</button>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-gray-400 font-semibold mb-1.5 block">Ticker Symbol</label>
+        <input type="text" id="qs-symbol" placeholder="e.g. NVDA" class="input-elegant w-full uppercase font-bold text-lg tracking-widest">
+      </div>
+      <div id="qs-summary" class="bg-white/5 rounded-xl p-3 mb-4 text-sm text-gray-300 space-y-1 border border-white/5"></div>
+      <button onclick="confirmQuickSave()" class="w-full btn-primary py-3.5 text-base font-bold">บันทึกเป็น Open Position</button>
+    </div>
+  </div>
+
+  <!-- Close Trade Modal -->
+  <div id="close-trade-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex flex-col justify-end transition-opacity opacity-0">
+    <div id="close-trade-sheet" class="bg-[var(--card-dark)] w-full rounded-t-3xl border-t border-[var(--border-dark)] p-5 transform translate-y-full transition-transform">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold">ปิดไม้ — <span id="ct-symbol" class="text-purple-400"></span></h3>
+        <button onclick="closeCloseTradeModal()" class="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center font-bold text-gray-400 hover:text-white">✕</button>
+      </div>
+      <div id="ct-info" class="bg-white/5 rounded-xl p-3 mb-4 text-xs text-gray-400 space-y-1 border border-white/5"></div>
+      <div class="mb-4">
+        <label class="text-xs text-gray-400 font-semibold mb-1.5 block">ราคาที่ขายจริง ($)</label>
+        <input type="number" id="ct-sell-price" class="input-elegant w-full font-mono text-xl font-bold" oninput="updateCTPnl()">
+      </div>
+      <div id="ct-pnl-preview" class="rounded-xl p-3 mb-4 text-center border border-white/10 bg-white/5">
+        <div class="text-xs text-gray-400 mb-1">PnL (ประมาณ)</div>
+        <div class="text-2xl font-black text-gray-400">—</div>
+      </div>
+      <button onclick="confirmCloseTrade()" class="w-full btn-primary py-3.5 text-base font-bold mb-2">✅ ขายได้แล้ว — ปิดไม้</button>
+      <button onclick="cancelTrade()" class="w-full py-3 rounded-xl text-sm font-bold border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">❌ ไม่ได้ซื้อ / ลบทิ้ง</button>
+    </div>
+  </div>
+
+  <div id="trade-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex flex-col justify-end transition-opacity opacity-0 pointer-events-auto">
+    <div class="bg-[var(--card-dark)] w-full rounded-t-3xl border-t border-[var(--border-dark)] p-5 transform translate-y-full transition-transform" id="trade-sheet">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold">Log Trade</h3>
+        <button onclick="closeTradeModal()" class="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center font-bold text-gray-400 hover:text-white">✕</button>
+      </div>
+      
+      <div class="flex gap-2 mb-4 p-1 bg-white/5 rounded-lg">
+        <button id="btn-status-open" onclick="setTradeStatus('open')" class="flex-1 py-1.5 text-xs font-bold rounded bg-[var(--card-dark)] text-white shadow-md">Open Position</button>
+        <button id="btn-status-closed" onclick="setTradeStatus('closed')" class="flex-1 py-1.5 text-xs font-bold rounded text-gray-400 hover:text-white transition-colors">Closed</button>
+      </div>
+      
+      <div class="space-y-4 mb-6">
+        
+        <!-- Section 1: Asset Details -->
+        <div class="bg-white/5 border border-white/10 rounded-xl p-3">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">1. Asset Details</div>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="col-span-2">
+              <label class="text-xs text-gray-400 font-semibold mb-1 block">Ticker Symbol</label>
+              <input type="text" id="trade-symbol" placeholder="e.g. NVDA" class="input-elegant w-full uppercase text-lg">
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 font-semibold mb-1 block">Shares</label>
+              <input type="number" id="trade-shares" placeholder="0" class="input-elegant w-full text-lg">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Entry & Exit Strategy -->
+        <div class="bg-white/5 border border-white/10 rounded-xl p-3">
+          <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">2. Price Strategy</div>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label class="text-xs text-blue-400 font-semibold mb-1 block">Buy Price</label>
+              <input type="number" id="trade-buy" placeholder="0.00" class="input-elegant w-full">
+            </div>
+            <div id="wrapper-trade-sell" class="hidden opacity-50 transition-opacity">
+              <label class="text-xs text-gray-400 font-semibold mb-1 block">Sell Price</label>
+              <input type="number" id="trade-sell" placeholder="0.00" class="input-elegant w-full">
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
+            <div>
+              <label class="text-xs text-red-400 font-semibold mb-1 block">Planned Stop</label>
+              <input type="number" id="trade-stop" placeholder="0.00" class="input-elegant w-full">
+            </div>
+            <div>
+              <label class="text-xs text-green-400 font-semibold mb-1 block">Planned Target</label>
+              <input type="number" id="trade-target" placeholder="0.00" class="input-elegant w-full">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Expert Details (Trader Only) -->
+        <div id="wrapper-trade-expert" class="bg-white/5 border border-white/10 rounded-xl p-3">
+          <div class="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-2">3. Setup & Analysis</div>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-gray-400 font-semibold mb-1 block">Strategy Tag</label>
+              <select id="trade-strategy" class="input-elegant w-full text-sm py-2 px-3 appearance-none">
+                <option value="">-- Select Strategy --</option>
+                <option value="Breakout">Breakout (VCP/Cup)</option>
+                <option value="Pullback">Pullback (MA20/50)</option>
+                <option value="Reversal">Mean Reversion</option>
+                <option value="News">News Catalyst</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-gray-400 font-semibold mb-1 block">Chart Link (TradingView)</label>
+              <input type="url" id="trade-chart" placeholder="https://www.tradingview.com/x/..." class="input-elegant w-full text-sm py-2 px-3">
+            </div>
+          </div>
+        </div>
+
+      </div>
+      
+      <button onclick="saveTrade()" class="w-full btn-primary py-3 rounded-xl font-bold text-lg">
+        Save Trade
+      </button>
+    </div>
+  </div>
+
+  <!-- Sync Capital Modal -->
+  <div id="sync-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex flex-col justify-end transition-opacity opacity-0 pointer-events-auto">
+    <div class="bg-[var(--card-dark)] w-full rounded-t-3xl border-t border-[var(--border-dark)] p-5 transform translate-y-full transition-transform" id="sync-sheet">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-lg font-bold">Sync Portfolio Capital</h3>
+          <p class="text-xs text-gray-400">เลือกรายการเทรดที่จะนำไปคำนวณรวมกับพอร์ต</p>
+        </div>
+        <button onclick="closeSyncModal()" class="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center font-bold text-gray-400 hover:text-white">✕</button>
+      </div>
+      
+      <div id="sync-trade-list" class="space-y-2 mb-6 max-h-[50vh] overflow-y-auto pr-2">
+        <!-- Injected by JS -->
+      </div>
+      
+      <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-4 border border-white/5">
+        <span class="text-sm font-bold text-gray-300">New Capital:</span>
+        <span class="text-xl font-black text-white" id="sync-preview-capital">$0.00</span>
+      </div>
+      
+      <button onclick="confirmSync()" class="w-full btn-primary py-3 rounded-xl font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600">
+        ยอมรับ (Apply Sync)
+      </button>
+    </div>
+  </div>
+
+  <!-- All JS logic lives in ES Modules loaded via app.js -->
+  <script>
+    // VI Settings sync — keep hidden inputs + settings modal inputs in sync
+    function syncVIAllocPct(val) {
+      var h = document.getElementById('vi-alloc-pct');
+      if (h) { h.value = val; h.dispatchEvent(new Event('input')); }
+      localStorage.setItem('vi_alloc_pct', val);
+    }
+    function syncVIFrac(checked) {
+      var h = document.getElementById('vi-frac');
+      if (h) { h.checked = checked; h.dispatchEvent(new Event('change')); }
+      localStorage.setItem('vi_frac', checked);
+    }
+
+    // Risk % pill handler — plain script (not module) so it's available immediately
+    function setRiskPct(val) {
+      var range = document.getElementById('calc-risk-pct');
+      if (range) { range.value = val; range.dispatchEvent(new Event('input')); }
+      document.querySelectorAll('.risk-pct-btn').forEach(function(btn) {
+        var active = parseFloat(btn.dataset.rpct) === parseFloat(val);
+        btn.classList.toggle('bg-purple-600', active);
+        btn.classList.toggle('text-white',    active);
+        btn.classList.toggle('shadow-sm',     active);
+        btn.classList.toggle('text-gray-400', !active);
+      });
+    }
+  </script>
+
+
+</body>
+</html>
