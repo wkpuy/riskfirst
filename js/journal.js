@@ -105,7 +105,7 @@ export async function syncJournalPrices() {
 // ─── Move to Breakeven ────────────────────────────────────────────────────────
 
 export async function moveToBreakeven(id, buyPrice) {
-  await updateJournalEntry(id, { stopPrice: parseFloat(buyPrice) });
+  await updateJournalEntry(id, { stopPrice: parseFloat(buyPrice), plannedLoss: 0 });
   showToast('Stop → Breakeven 📍 ไม้นี้ Risk Free แล้ว ✅', 'success');
   await loadDashboard();
 }
@@ -268,7 +268,7 @@ export function previewPyramid() {
       <div class="bg-white/5 rounded-lg p-2"><div class="text-gray-400 mb-0.5">ซื้อเพิ่ม</div><div class="font-black text-white text-lg">${res.nextShares} shares</div></div>
       <div class="bg-white/5 rounded-lg p-2"><div class="text-gray-400 mb-0.5">Stop ใหม่</div><div class="font-black text-red-400">$${res.nextStop.toFixed(2)}</div></div>
       <div class="bg-white/5 rounded-lg p-2"><div class="text-gray-400 mb-0.5">Avg Cost ใหม่</div><div class="font-black text-yellow-400">$${res.newAvgCost.toFixed(2)}</div></div>
-      <div class="bg-white/5 rounded-lg p-2"><div class="text-gray-400 mb-0.5">Combined Risk</div><div class="font-black ${isAlert ? 'text-orange-400' : 'text-green-400'}">${res.combinedRiskPct.toFixed(2)}%</div></div>
+      <div class="bg-white/5 rounded-lg p-2"><div class="text-gray-400 mb-0.5">Combined Risk</div><div class="font-black ${res.combinedRiskPct <= 0 ? 'text-blue-400' : isAlert ? 'text-orange-400' : 'text-green-400'}">${res.combinedRiskPct <= 0 ? '📍 Risk-Free' : res.combinedRiskPct.toFixed(2) + '%'}</div></div>
     </div>
     ${isAlert ? `<div class="mt-2 text-[10px] text-orange-400 text-center">⚠️ ${res.alerts[0]}</div>` : ''}`;
 }
@@ -824,8 +824,8 @@ function _renderStats(entries) {
   _setText('dash-pnl-pct',      `${pnl >= 0 ? '+' : ''}${((pnl / initCap) * 100).toFixed(1)}%`);
   _setText('dash-winrate',      `${applied > 0 ? ((winCount / applied) * 100).toFixed(1) : 0}%`);
   _setText('dash-trades-count', String(applied));
-  _setText('dash-avg-rr',       `${rrCount > 0 ? (sumRR / rrCount).toFixed(2) : '0.00'}R`);
-  _setText('dash-pf',           pf === 99.99 ? 'MAX' : pf.toFixed(2));
+  _setText('dash-avg-rr',       rrCount > 0 ? `${(sumRR / rrCount).toFixed(2)}R` : '—');
+  _setText('dash-pf',           pf >= 99 ? 'MAX' : pf.toFixed(2));
   _setText('dash-max-dd',       maxDD > 0 ? `-${maxDD.toFixed(1)}%` : '—');
 
   // Label updates

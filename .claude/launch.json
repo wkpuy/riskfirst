@@ -4,7 +4,7 @@
     {
       "name": "riskfirst",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["serve.py"],
+      "runtimeArgs": ["-m", "http.server", "3456"],
       "port": 3456
     }
   ]

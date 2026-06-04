@@ -5,7 +5,7 @@ import { fetchEarnings } from './api.js';
 import { getCached } from './cache.js';
 import { CACHE_TTL, CACHE_PREFIX_EARNINGS } from './config.js';
 import { state } from './state.js';
-import { showToast } from './ui.js';
+import { showToast, showConfirm } from './ui.js';
 import { switchTab } from './nav.js';
 
 // ─── Trader Risk Calculator ───────────────────────────────────────────────────
@@ -25,27 +25,36 @@ export function updateRiskCalc() {
   const display = document.getElementById('display-risk-pct');
   let { accountSize, riskPct, entryPrice, stopPrice, targetPrice, fractional } = _readRiskInputs();
 
-  // ── Monthly Cooldown: intercept riskPct if in drawdown ──
+  // ── Monthly Cooldown: intercept riskPct if in drawdown (unless user overrode) ──
   const cooldown   = state.cooldownStatus;
   const badgeEl    = document.getElementById('cooldown-badge');
-  const FORCED_PCT = 0.5;   // match smallest pill — 0.25 would disable every pill
-  const inCooldown = cooldown?.inCooldown ?? false;
+  const FORCED_PCT = 0.5;
+  const inCooldown = (cooldown?.inCooldown ?? false) && !state.cooldownOverride;
 
-  if (inCooldown) {
+  if (cooldown?.inCooldown && !state.cooldownOverride) {
     riskPct = FORCED_PCT;
-    // Write back to the DOM input so saveFromRiskCalc() reads the correct value
     const riskInput = document.getElementById('calc-risk-pct');
     if (riskInput) riskInput.value = FORCED_PCT;
 
     if (badgeEl) {
-      badgeEl.classList.remove('hidden');
-      badgeEl.innerHTML = `<span class="text-base">🛡️</span><span><span class="font-black">Defensive Mode Active</span> — Monthly Loss ${cooldown.lossPct.toFixed(1)}% ≥ ${cooldown.thresholdPct}%<br><span class="font-normal opacity-80">บัญชีติดลิมิตขาดทุนรายเดือน ระบบบีบให้เล่น ${FORCED_PCT}% max ประคองชีวิตเท่านั้น</span></span>`;
+      badgeEl.className = 'flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs border border-red-500/30 text-red-300';
+      badgeEl.style.background = 'rgba(239,68,68,0.1)';
+      badgeEl.innerHTML = `<span class="text-base">🛡️</span><span class="flex-1"><span class="font-black">Defensive Mode Active</span> — Monthly Loss ${cooldown.lossPct.toFixed(1)}% ≥ ${cooldown.thresholdPct}%<br><span class="font-normal opacity-80">บัญชีติดลิมิตขาดทุนรายเดือน ระบบบีบให้เล่น ${FORCED_PCT}% max ประคองชีวิตเท่านั้น</span><br><button onclick="overrideCooldown()" class="mt-1.5 text-[10px] font-bold underline text-red-300 hover:text-white">⚠️ Override (รับทราบความเสี่ยง)</button></span>`;
+    }
+  } else if (cooldown?.inCooldown && state.cooldownOverride) {
+    if (badgeEl) {
+      badgeEl.className = 'flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs border border-orange-500/30 text-orange-300';
+      badgeEl.style.background = 'rgba(249,115,22,0.1)';
+      badgeEl.innerHTML = `<span class="text-base">⚠️</span><span><span class="font-black">Override Active</span> — เทรดได้ แต่ระวัง! Monthly Loss ${cooldown.lossPct.toFixed(1)}%<br><span class="font-normal opacity-80">คุณเลือกข้าม Defensive Mode — ใช้ position size เล็กและมีวินัย</span></span>`;
     }
   } else {
-    if (badgeEl) badgeEl.classList.add('hidden');
+    if (badgeEl) {
+      badgeEl.className = 'hidden flex items-start gap-2.5 rounded-xl px-3 py-2.5 text-xs border border-red-500/30 text-red-300';
+      badgeEl.style.background = '';
+    }
   }
 
-  // Single pass: disable pills > FORCED_PCT only when in cooldown
+  // Disable pills > FORCED_PCT only when in cooldown AND no override
   document.querySelectorAll('.risk-pct-btn').forEach(btn => {
     const v      = parseFloat(btn.dataset.rpct);
     const locked = inCooldown && v > FORCED_PCT;
@@ -219,6 +228,18 @@ function _earningsBadgeHtml(data) {
       <span>⚠️</span>
       <span>คาดงบออกใน ~${daysLeft} วัน (ประมาณ ${nextEst.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}) — พิจารณาชะลอซื้อ</span>
     </div>`;
+}
+
+export function overrideCooldown() {
+  const cooldown = state.cooldownStatus;
+  showConfirm(
+    `⚠️ Override Defensive Mode? Loss รายเดือน ${cooldown?.lossPct?.toFixed(1)}% เกินเกณฑ์ ${cooldown?.thresholdPct}% แล้ว การ Override จะปลดล็อก Risk % ทุกระดับ — คุณรับผิดชอบความเสี่ยงเอง ยืนยันหรือไม่?`,
+    () => {
+      state.cooldownOverride = true;
+      showToast('⚠️ Override Active — เทรดด้วยความระมัดระวัง', 'warning');
+      updateRiskCalc();
+    }
+  );
 }
 
 export function applyToVIRisk(price) {

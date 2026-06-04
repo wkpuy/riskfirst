@@ -12,7 +12,7 @@ import {
 import { updateMarketRegime, renderRegimeBanner } from './regime.js';
 import { loadWatchlist, addWatchlist, removeWatchlist, addWatchlistDirect } from './watchlist.js';
 import { openCapitalModal, closeCapitalModal, saveCapital, syncPrices, renderReallocation } from './portfolio.js';
-import { updateRiskCalc, updateVIRiskCalc, applyToRiskCalc, applyToVIRisk } from './risk-calc.js';
+import { updateRiskCalc, updateVIRiskCalc, applyToRiskCalc, applyToVIRisk, overrideCooldown } from './risk-calc.js';
 import { scanStock, scanAllWatchlist, selectTarget } from './trader-scan.js';
 import { scanVI, calcMOSScan } from './vi-scan.js';
 import {
@@ -49,7 +49,7 @@ Object.assign(window, {
   addWatchlist, removeWatchlist, addWatchlistDirect,
 
   // Risk calculators
-  applyToRiskCalc, applyToVIRisk,
+  applyToRiskCalc, applyToVIRisk, overrideCooldown,
 
   // Trade journal
   setTimeframe,
@@ -77,6 +77,7 @@ Object.assign(window, {
   exportBackup: _exportBackup,
   importBackup: _importBackup,
   saveApiKey:   _saveApiKey,
+  saveOrderTTL: _saveOrderTTL,
 
 });
 
@@ -92,6 +93,24 @@ window.setRiskPct = function(val) {
     btn.classList.toggle('text-gray-400', !active);
   });
 };
+
+// ─── Order TTL helpers ────────────────────────────────────────────────────────
+
+function _updateTTLDaysLabel(hours) {
+  const el = document.getElementById('order-ttl-days');
+  if (!el) return;
+  if (hours % 24 === 0) el.textContent = `${hours / 24} วัน`;
+  else                   el.textContent = `${hours} ชม.`;
+}
+
+function _saveOrderTTL(val) {
+  const hours = Math.min(168, Math.max(1, parseInt(val) || 72));
+  localStorage.setItem('order_ttl_hours', String(hours));
+  _updateTTLDaysLabel(hours);
+  // Sync input in case value was clamped
+  const el = document.getElementById('order-ttl-hours');
+  if (el && parseInt(el.value) !== hours) el.value = hours;
+}
 
 // ─── Backup helpers ───────────────────────────────────────────────────────────
 
@@ -159,6 +178,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (apiEl) apiEl.value = localStorage.getItem('finnhubApiKey')    || '';
   if (tdEl)  tdEl.value  = localStorage.getItem('twelvedataApiKey') || '';
 
+  // Populate Order TTL setting
+  const savedTTL = localStorage.getItem('order_ttl_hours') || '72';
+  const ttlEl    = document.getElementById('order-ttl-hours');
+  if (ttlEl) ttlEl.value = savedTTL;
+  _updateTTLDaysLabel(parseInt(savedTTL));
+
   // ── Trader Risk Calculator ──
   ['calc-account-size', 'calc-risk-pct', 'calc-entry-price', 'calc-stop-loss', 'calc-target-price']
     .forEach(id => document.getElementById(id)?.addEventListener('input', updateRiskCalc));
@@ -212,18 +237,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (cachedRegime) renderRegimeBanner(cachedRegime);
   updateMarketRegime();
 
-  // ── Order TTL: auto-expire open Trader orders older than 72 hours ──
+  // ── Order TTL: auto-expire open Trader orders older than configured hours ──
   try {
     const { getJournalEntries, updateJournalEntry } = await import('./db.js');
-    const allEntries = await getJournalEntries('trader');
-    const TTL_MS     = 72 * 60 * 60 * 1000;
-    const stale      = allEntries.filter(t =>
+    const allEntries  = await getJournalEntries('trader');
+    const ttlHours    = parseInt(localStorage.getItem('order_ttl_hours')) || 72;
+    const TTL_MS      = ttlHours * 60 * 60 * 1000;
+    const stale       = allEntries.filter(t =>
       t.status === 'open' && t.strategy !== 'pyramid' && (Date.now() - t.createdAt) > TTL_MS
     );
     if (stale.length) {
       await Promise.all(stale.map(t => updateJournalEntry(t.id, { status: 'expired' })));
+      const days = ttlHours % 24 === 0 ? `${ttlHours / 24} วัน` : `${ttlHours} ชม.`;
       showToast(
-        `⚠️ ${stale.length} คำสั่งซื้อค้างเกิน 3 วัน → ตั้งเป็น Expired แล้ว — ตรวจสอบและยกเลิก order ที่ broker ด้วย`,
+        `⚠️ ${stale.length} คำสั่งซื้อค้างเกิน ${days} → ตั้งเป็น Expired แล้ว — ตรวจสอบและยกเลิก order ที่ broker ด้วย`,
         'warning'
       );
       await loadDashboard();

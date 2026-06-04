@@ -357,7 +357,7 @@ python3 -m http.server 3456
 |----------|--------|---------|
 | 🟡 Medium | RS Rank true percentile | ตอนนี้ใช้ excess return vs SPY (approximate) — ยังไม่ใช่ true cross-sectional rank |
 | 🟡 Medium | Watchlist scan status badge | แสดง SEPA score / last scan time บน watchlist card โดยไม่ต้อง scan ซ้ำ |
-| 🟡 Medium | Order TTL user-configurable | ตอนนี้ hardcode 72h — ควรให้ปรับได้ใน Settings |
-| 🟡 Medium | Monthly Cooldown override | ตอนนี้ force 0.25% ไม่มีทาง override — ควรเพิ่มปุ่ม "Override (รับทราบ)" |
+| ✅ Done | Order TTL user-configurable | ปรับได้ใน ⚡ Trader Settings (1–168 ชม.) — `order_ttl_hours` ใน localStorage |
+| ✅ Done | Monthly Cooldown override | ปุ่ม "Override (รับทราบความเสี่ยง)" ใน Defensive Mode badge — session-only, reset on reload |
 | 🟢 Low | Top 5 Picks daily cron | Auto-scan universe ทุกเช้า (ต้องมี backend) |
 | 🟢 Low | Piotroski F-Score | ยังไม่ implement จริง (อยู่ใน spec เดิมแต่ยังไม่มี data source) |

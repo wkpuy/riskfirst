@@ -34,6 +34,7 @@ export const state = {
 
   // Monthly cooldown status (updated in loadDashboard)
   cooldownStatus: null,
+  cooldownOverride: false,  // session-only, resets on reload
 
   // Pyramid modal context
   pyramidTradeId:  null,

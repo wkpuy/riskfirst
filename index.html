@@ -727,6 +727,26 @@
           </label>
         </div>
 
+        <!-- ── TRADER SETTINGS ── -->
+        <h3 class="font-bold text-purple-400 mb-2 mt-6">⚡ Trader Settings</h3>
+        <p class="text-sm text-[var(--text-muted)] mb-4">ปรับพฤติกรรมระบบเทรด — บันทึกอัตโนมัติ</p>
+
+        <div class="bg-[var(--bg-dark)] border border-[var(--border-dark)] rounded-xl p-4 mb-6">
+          <div class="text-xs font-semibold text-[var(--text-muted)] mb-2">Order TTL — ออเดอร์ค้างนานแค่ไหนถึง Expire</div>
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-[var(--text-muted)]">หลังจาก</span>
+            <div class="flex items-center gap-1 bg-purple-500/10 border border-purple-500/20 rounded-xl px-4 py-2">
+              <input type="number" id="order-ttl-hours" min="1" max="168" step="1" value="72"
+                     class="w-12 text-center text-lg font-black text-purple-400 bg-transparent outline-none border-none"
+                     style="appearance:textfield;-moz-appearance:textfield;"
+                     oninput="saveOrderTTL(this.value)">
+              <span class="text-sm font-bold text-purple-400">ชม.</span>
+            </div>
+            <span class="text-sm text-[var(--text-muted)]">= <span id="order-ttl-days" class="font-bold text-purple-400">3 วัน</span></span>
+          </div>
+          <p class="text-[10px] text-gray-500 mt-1.5">Open orders ที่บันทึกไว้นานกว่านี้จะถูก auto-expire ตอนเปิด app (1–168 ชม.)</p>
+        </div>
+
         <!-- ── BACKUP ── -->
         <h3 class="font-bold text-red-500 mb-2">💾 Backup & Restore</h3>
         <p class="text-sm text-[var(--text-muted)] mb-3">ข้อมูลทั้งหมดอยู่ใน Browser เท่านั้น — ล้าง cache หรือเปลี่ยนอุปกรณ์จะหายหมด</p>
