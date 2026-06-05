@@ -19,9 +19,10 @@ export function switchTab(baseTabId) {
   document.getElementById(fullId)?.classList.add('active');
   document.getElementById('nav-' + baseTabId)?.classList.add('active');
 
-  // Trigger VI risk tab refresh when switched to
-  if (isVI && baseTabId === 'risk') {
-    document.dispatchEvent(new Event('vi-risk-shown'));
+  // Risk/Port tab: sync portfolio capital into calculator inputs
+  if (baseTabId === 'risk') {
+    document.dispatchEvent(new Event('riskfirst:refresh')); // updates calc-account-size + PORT bar
+    if (isVI) document.dispatchEvent(new Event('vi-risk-shown'));
   }
   // Refresh journal on every tab switch to ensure fresh data
   if (baseTabId === 'journal') {
