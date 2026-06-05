@@ -65,7 +65,7 @@ export async function scanStock() {
       return;
     }
 
-    const data = _computeIndicators(quote, candles);
+    const data = _computeIndicators(quote, candles, symbol);
     const earningsInfo = await _fetchEarningsInfo(symbol, apiKey);
 
     _renderScanCard(area, { symbol, profile, earningsInfo, ...data });
@@ -249,7 +249,7 @@ export function selectTarget(label, targetValue, symbol, entry, stop) {
 
 const r2 = v => Math.round(v * 100) / 100;
 
-function _computeIndicators(quote, candles) {
+function _computeIndicators(quote, candles, symbol) {
   const { c, h, l, v } = candles;
   const price         = quote.c;
   const change        = price - (quote.pc || price);
@@ -266,7 +266,26 @@ function _computeIndicators(quote, candles) {
   const low52w        = r2(Math.min(...l));
   const atr           = r2(calcATR(candles));
   const atrStop       = r2(Math.max(price * 0.01, price - atr * ATR_MULTIPLIER));
-  const rsRating      = calcRSRating(c, spyCloses);
+
+  // ── RS Rating: prefer true cross-sectional rank from last Scan All (≤7 days) ──
+  // calcRSRating vs SPY alone can't produce a real 1-99 percentile without
+  // ranking against a full universe. Use cached rank when available.
+  let rsRating, rsSource;
+  try {
+    const badge = JSON.parse(localStorage.getItem(`wl_badge_${symbol}`) || 'null');
+    const age   = badge ? Date.now() - badge.ts : Infinity;
+    if (badge?.rs != null && age < 7 * 24 * 60 * 60 * 1000) {
+      rsRating = badge.rs;
+      rsSource = 'rank'; // true percentile from cross-sectional scan
+    } else {
+      rsRating = calcRSRating(c, spyCloses);
+      rsSource = 'approx'; // relative to SPY only — not a full-market percentile
+    }
+  } catch {
+    rsRating = calcRSRating(c, spyCloses);
+    rsSource = 'approx';
+  }
+
   const sepaResult    = checkSEPA({ price, ma50, ma150, ma200, ma200_1moAgo, low52w, high52w, rsRating });
   const proximity     = Math.max(0, Math.min(1, 1 - (high52w - price) / high52w));
   const vol5          = v.slice(-5).reduce((a, b) => a + b, 0) / 5;
@@ -276,7 +295,7 @@ function _computeIndicators(quote, candles) {
 
   // BUG-M6: flag insufficient candle data for user warning
   const hasFullData = c.length >= 200;
-  return { price, change, changePct, ma50, ma150, ma200, high52w, low52w, atr, atrStop, rsRating, sepaResult, compScore, proximity, volDry, hasFullData };
+  return { price, change, changePct, ma50, ma150, ma200, high52w, low52w, atr, atrStop, rsRating, rsSource, sepaResult, compScore, proximity, volDry, hasFullData };
 }
 
 function _calcComposite(candles, price) {
@@ -307,9 +326,30 @@ async function _fetchEarningsInfo(symbol, apiKey) {
   try {
     const data = await fetchEarnings(symbol, apiKey);
     if (!Array.isArray(data) || !data.length) return null;
-    const last         = [...data].sort((a, b) => new Date(b.period) - new Date(a.period))[0];
-    const lastDate     = new Date(last.period);
-    const nextEst      = new Date(lastDate.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    // Sort descending → most recent first
+    const sorted = [...data]
+      .filter(d => d.period)
+      .sort((a, b) => new Date(b.period) - new Date(a.period));
+
+    if (!sorted.length) return null;
+    const lastDate = new Date(sorted[0].period);
+
+    // ── Compute average reporting interval from actual historical dates ──
+    // Using fixed 90-day assumption is inaccurate — companies vary (85–105 days).
+    // Average the gaps between the last N quarters we actually have.
+    let avgIntervalMs = 91 * 24 * 60 * 60 * 1000; // fallback: 91 days
+    if (sorted.length >= 2) {
+      const gaps = [];
+      for (let i = 0; i < sorted.length - 1; i++) {
+        gaps.push(new Date(sorted[i].period) - new Date(sorted[i + 1].period));
+      }
+      avgIntervalMs = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+      // Sanity check: clamp to 60–120 days (anything outside is data error)
+      avgIntervalMs = Math.max(60, Math.min(120, Math.round(avgIntervalMs / (24 * 60 * 60 * 1000)))) * 24 * 60 * 60 * 1000;
+    }
+
+    const nextEst       = new Date(lastDate.getTime() + avgIntervalMs);
     const daysUntilNext = Math.round((nextEst - Date.now()) / (24 * 60 * 60 * 1000));
     return { lastDate, nextEst, daysUntilNext, daysAgo: -daysUntilNext };
   } catch { return null; }
@@ -327,8 +367,8 @@ function _earningsBanners(earningsInfo, price, atr) {
       <div class="flex items-start gap-2 rounded-xl p-3 mb-3 border" style="background:#fee2e2;border-color:#fca5a5">
         <span class="text-xl shrink-0">🚫</span>
         <div>
-          <div class="text-xs font-black text-red-700">อย่าเข้า — คาดงบออกใน ~${daysUntilNext} วัน (ประมาณ ${dateStr})</div>
-          <div class="text-[10px] text-red-600 mt-0.5">ราคาอาจ Gap ได้ทั้ง 2 ทาง แนะนำรอหลังงบออกแล้วดูทิศทาง</div>
+          <div class="text-xs font-black text-red-700">อย่าเข้า — คาดงบออกใน ~${daysUntilNext} วัน (~${dateStr})</div>
+          <div class="text-[10px] text-red-600 mt-0.5">ประมาณจาก interval งบย้อนหลังจริง · ราคาอาจ Gap ได้ทั้ง 2 ทาง แนะนำรอหลังงบออกแล้วดูทิศทาง</div>
         </div>
       </div>`;
     if (atr) atrNote = `<br><span class="text-yellow-400">ถ้าจะเข้าก่อนงบ แนะนำ Stop กว้างขึ้น $${(price - atr * ATR_MULTIPLIER_WIDE).toFixed(2)} (${ATR_MULTIPLIER_WIDE}×ATR)</span>`;
@@ -338,7 +378,7 @@ function _earningsBanners(earningsInfo, price, atr) {
       <div class="flex items-start gap-2 rounded-xl p-3 mb-3 border" style="background:#fef3c7;border-color:#fcd34d">
         <span class="text-xl shrink-0">⚠️</span>
         <div>
-          <div class="text-xs font-black text-yellow-800">ระวัง — คาดงบออกอีก ~${daysUntilNext} วัน (ประมาณ ${dateStr})</div>
+          <div class="text-xs font-black text-yellow-800">ระวัง — คาดงบออกอีก ~${daysUntilNext} วัน (~${dateStr})</div>
           <div class="text-[10px] text-yellow-700 mt-0.5">IV จะเริ่มสูงขึ้น ถ้าเข้าให้ตั้ง Stop กว้างกว่าปกติ</div>
         </div>
       </div>`;
@@ -360,7 +400,7 @@ function _earningsBanners(earningsInfo, price, atr) {
 }
 
 function _renderScanCard(container, d) {
-  const { symbol, profile, price, change, changePct, sepaResult, rsRating, compScore,
+  const { symbol, profile, price, change, changePct, sepaResult, rsRating, rsSource, compScore,
           atrStop, ma50, ma150, ma200, high52w, atr, earningsInfo, hasFullData } = d;
 
   const pass    = sepaResult.qualifies;
@@ -421,8 +461,9 @@ function _renderScanCard(container, d) {
           <div class="text-lg font-bold ${sepaColor}">${sepaResult.score}/8</div>
         </div>
         <div class="bg-white/5 rounded-xl p-3 text-center border border-white/5">
-          <div class="text-[10px] text-gray-400 mb-1">RS (approx)</div>
+          <div class="text-[10px] text-gray-400 mb-1">${rsSource === 'rank' ? 'RS Rank ✓' : 'RS vs SPY'}</div>
           <div class="text-lg font-bold text-blue-400">${rsRating}</div>
+          <div class="text-[9px] mt-0.5 ${rsSource === 'rank' ? 'text-green-600' : 'text-gray-600'}">${rsSource === 'rank' ? 'rank จริง (Scan All)' : 'approx — ยังไม่ Scan All'}</div>
         </div>
         <div class="bg-white/5 rounded-xl p-3 text-center border border-white/5">
           <div class="text-xs text-gray-400 mb-1">Score</div>

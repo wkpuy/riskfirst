@@ -239,28 +239,67 @@ function _buildChecks({ pe, pb, roe, roa, revGrow, epsGrow, beta, pegRatio, isGr
 
 /**
  * Auto-estimate Fair Value from available Finnhub metrics.
+ * All methods use established financial formulas — no made-up heuristics.
  * Returns { value, method, note, confidence } where confidence is 'high'|'medium'|'low'.
+ *
+ * Priority chain (stops at first valid result):
+ *   Growth:  PEG=1 (Lynch) → Gordon Growth DDM → null
+ *   Value:   Graham Number → P/E 15x → Gordon Growth DDM → P/B=1 (Book Value) → null
  */
-function _calcFairValue(price, pe, pb, epsGrow, isGrowth, high52) {
+function _calcFairValue(price, pe, pb, epsGrow, revGrow, divYield, isGrowth) {
   const eps = (pe != null && pe > 0 && pe < 200) ? price / pe : null;
   const bv  = (pb != null && pb > 0)             ? price / pb : null;
 
-  // ── Growth: PEG = 1 (Peter Lynch) ──
-  if (isGrowth && eps != null && epsGrow != null && epsGrow > 0) {
-    const fairPE = Math.min(epsGrow, 30); // cap at 30 to avoid overvaluation
-    const fv     = fairPE * eps;
-    if (fv > 0 && fv < price * 5) {
-      return {
-        value:      fv,
-        method:     'PEG = 1 (Lynch)',
-        note:       `Fair P/E ${fairPE.toFixed(0)}x × EPS $${eps.toFixed(2)} (EPS growth ${epsGrow.toFixed(0)}%)`,
-        confidence: epsGrow > 10 ? 'high' : 'medium',
-      };
+  // ── Shared helper: Gordon Growth Model (Dividend Discount Model) ──────────
+  // Formula: Fair Value = D / (r − g)
+  // D = annual dividend per share = price × divYield%
+  // r = 10% required return (long-run market average, Damodaran)
+  // g = sustainable growth rate, capped at 8% (g must be < r)
+  const _gordonDDM = () => {
+    if (!divYield || divYield <= 0) return null;
+    const D = price * (divYield / 100);
+    const rawG = (revGrow != null && revGrow > 0) ? revGrow / 100 : 0;
+    const g = Math.min(rawG, 0.08);       // cap: perpetual growth can't exceed ~GDP
+    const r = 0.10;
+    if (g >= r || D <= 0) return null;
+    const fv = D / (r - g);
+    if (fv <= 0 || !isFinite(fv) || fv > price * 10) return null;
+    return {
+      value:      fv,
+      method:     'Gordon Growth (DDM)',
+      note:       `Dividend $${D.toFixed(2)} ÷ (10% − ${(g * 100).toFixed(0)}% growth) = $${fv.toFixed(2)}`,
+      confidence: divYield > 1 && g > 0 ? 'medium' : 'low',
+    };
+  };
+
+  // ── GROWTH stocks ──────────────────────────────────────────────────────────
+
+  if (isGrowth) {
+    // 1. PEG = 1 (Peter Lynch): Fair P/E = EPS growth rate
+    if (eps != null && epsGrow != null && epsGrow > 0) {
+      const fairPE = Math.min(epsGrow, 30); // cap at 30× — Lynch himself says don't overpay
+      const fv     = fairPE * eps;
+      if (fv > 0 && fv < price * 5) {
+        return {
+          value:      fv,
+          method:     'PEG = 1 (Lynch)',
+          note:       `Fair P/E ${fairPE.toFixed(0)}x × EPS $${eps.toFixed(2)} (EPS growth ${epsGrow.toFixed(0)}%)`,
+          confidence: epsGrow > 10 ? 'high' : 'medium',
+        };
+      }
     }
+    // 2. Gordon DDM (rare for growth — only if pays dividend)
+    const ddm = _gordonDDM();
+    if (ddm) return ddm;
+
+    // No valid estimate for growth stock with negative EPS and no dividend
+    return null;
   }
 
-  // ── Value: Graham Number ──
-  if (!isGrowth && eps != null && bv != null && eps > 0 && bv > 0) {
+  // ── VALUE stocks ───────────────────────────────────────────────────────────
+
+  // 1. Graham Number: √(22.5 × EPS × BV) — both positive required
+  if (eps != null && bv != null && eps > 0 && bv > 0) {
     const graham = Math.sqrt(22.5 * eps * bv);
     if (graham > 0 && isFinite(graham) && graham < price * 5) {
       return {
@@ -272,29 +311,35 @@ function _calcFairValue(price, pe, pb, epsGrow, isGrowth, high52) {
     }
   }
 
-  // ── Fallback: P/E only — Value stocks only (P/E 15× is inappropriate for Growth) ──
-  if (!isGrowth && eps != null && pe != null && pe > 0 && pe < 50) {
+  // 2. Conservative P/E 15x — Shiller's historical fair-market P/E average
+  if (eps != null && eps > 0 && pe != null && pe > 0 && pe < 50) {
     const fv = 15 * eps;
     if (fv > 0) {
       return {
         value:      fv,
         method:     'Conservative P/E 15x',
-        note:       `EPS $${eps.toFixed(2)} × fair P/E 15 (ค่าเฉลี่ยตลาดระยะยาว)`,
+        note:       `EPS $${eps.toFixed(2)} × P/E 15 (Shiller ค่าเฉลี่ยระยะยาว S&P500)`,
         confidence: 'medium',
       };
     }
   }
 
-  // ── Last resort: 52w High × 85% — only when high52 is a real data point (not price itself) ──
-  if (high52 > 0 && high52 !== price) {
+  // 3. Gordon DDM — for dividend-paying value stocks
+  const ddm = _gordonDDM();
+  if (ddm) return ddm;
+
+  // 4. P/B = 1 (Graham's floor) — worth no more than book value
+  // Only useful when stock trades at premium to book (pb > 1)
+  if (bv != null && bv > 0 && pb != null && pb > 1) {
     return {
-      value:      high52 * 0.85,
-      method:     '52w High × 85%',
-      note:       `อ้างอิงจากจุดสูงสุดในรอบปี — ควรกรอก Fair Value เอง`,
+      value:      bv,
+      method:     'Book Value (Graham floor)',
+      note:       `BV/share = $${bv.toFixed(2)} (ราคาปัจจุบัน P/B ${pb.toFixed(1)}x — floor ที่ Graham ถือว่าปลอดภัย)`,
       confidence: 'low',
     };
   }
 
+  // No valid estimate — caller should prompt user to input manually
   return null;
 }
 
@@ -436,7 +481,7 @@ function _renderVICard(symbol, quote, profile, metricData) {
       </div>
 
       ${(() => {
-        const fv = _calcFairValue(price, pe, pb, epsGrow, isGrowth, high52);
+        const fv = _calcFairValue(price, pe, pb, epsGrow, revGrow, divYield, isGrowth);
         const fvVal   = fv ? fv.value.toFixed(2) : '';
         const confColor = { high:'#15803d', medium:'#92400e', low:'#b91c1c' }[fv?.confidence] ?? '#374151';
         const confBg    = { high:'#dcfce7', medium:'#fef9c3', low:'#fee2e2' }[fv?.confidence] ?? '#f3f4f6';
