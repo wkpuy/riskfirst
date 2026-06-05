@@ -73,8 +73,9 @@ export function updatePortfolio(data, type = 'trader') {
     const tx = db.transaction('portfolio', 'readwrite');
     const store = tx.objectStore('portfolio');
     const req = store.put({ id: `main-${type}`, ...data });
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+    req.onerror   = () => reject(req.error);
+    tx.oncomplete = () => resolve();          // wait for commit, not just request success
+    tx.onerror    = () => reject(tx.error);
   });
 }
 
@@ -82,12 +83,13 @@ export function addJournalEntry(entry) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('journal', 'readwrite');
     const store = tx.objectStore('journal');
-    // Ensure type is set (default to trader for backward compatibility)
     if(!entry.type) entry.type = 'trader';
-    // ใช้ createdAt ที่ส่งมา ถ้าไม่มีค่อยใส่ปัจจุบัน
     const req = store.add({ createdAt: Date.now(), ...entry });
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    let newId;
+    req.onsuccess = () => { newId = req.result; };
+    req.onerror   = () => reject(req.error);
+    tx.oncomplete = () => resolve(newId);    // return new ID after commit
+    tx.onerror    = () => reject(tx.error);
   });
 }
 
@@ -113,16 +115,16 @@ export function updateJournalEntry(entryOrId, partial = null) {
         const existing = getReq.result;
         if (!existing) { reject(new Error(`Journal entry ${entryOrId} not found`)); return; }
         const putReq = store.put({ ...existing, ...partial });
-        putReq.onsuccess = () => resolve(putReq.result);
-        putReq.onerror  = () => reject(putReq.error);
+        putReq.onerror = () => reject(putReq.error);
       };
       getReq.onerror = () => reject(getReq.error);
     } else {
       // called as (fullEntry)
       const req = store.put(entryOrId);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror  = () => reject(req.error);
+      req.onerror = () => reject(req.error);
     }
+    tx.oncomplete = () => resolve();         // wait for commit before resolving
+    tx.onerror    = () => reject(tx.error);
   });
 }
 
@@ -131,8 +133,9 @@ export function deleteJournalEntry(id) {
     const tx = db.transaction('journal', 'readwrite');
     const store = tx.objectStore('journal');
     const req = store.delete(id);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+    req.onerror   = () => reject(req.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror    = () => reject(tx.error);
   });
 }
 
@@ -147,9 +150,10 @@ export function addWatchlistDB(symbol, type = 'trader') {
     req.onsuccess = () => {
       const existing = req.result.find(item => item.symbol === symbol);
       if (!existing) store.add({ symbol, type, addedAt: Date.now() });
-      resolve();
     };
-    req.onerror = () => reject(req.error);
+    req.onerror   = () => reject(req.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror    = () => reject(tx.error);
   });
 }
 
@@ -173,12 +177,11 @@ export function removeWatchlistDB(symbol, type = 'trader') {
     
     req.onsuccess = () => {
       const existing = req.result.find(item => item.symbol === symbol);
-      if(existing) {
-        store.delete(existing.id);
-      }
-      resolve();
+      if (existing) store.delete(existing.id);
     };
-    req.onerror = () => reject(req.error);
+    req.onerror   = () => reject(req.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror    = () => reject(tx.error);
   });
 }
 
