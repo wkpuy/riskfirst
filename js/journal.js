@@ -393,6 +393,90 @@ export async function runCapitalSync(type = 'trader') {
 
 // ─── Trade Modal ──────────────────────────────────────────────────────────────
 
+async function _handleNewVIEntry(entry) {
+  const allVI = await getJournalEntries('vi');
+  const existing = allVI.find(t => t.symbol === entry.symbol && t.status === 'open' && t.strategy !== 'dividend');
+
+  const newShares = entry.shares || 0;
+  const newCost   = entry.buyPrice || 0;
+  const newValue  = newShares * newCost;
+  
+  const portCap = state.viPortfolio?.capital || 0;
+  const maxPosLimit = portCap * 0.20;
+
+  if (existing) {
+    const oldShares = existing.shares || 0;
+    const oldCost   = existing.buyPrice || 0;
+    
+    const totalShares = oldShares + newShares;
+    const avgCost     = totalShares > 0 ? ((oldShares * oldCost) + newValue) / totalShares : 0;
+    const totalValue  = totalShares * avgCost;
+    
+    if (totalValue > maxPosLimit && maxPosLimit > 0) {
+      if (!confirm(`⚠️ น้ำหนักหุ้น ${entry.symbol} จะกลายเป็น $${totalValue.toFixed(2)} ซึ่งเกิน 20% ของพอร์ต VI ($${maxPosLimit.toFixed(2)}) ยืนยันที่จะซื้อเพิ่ม (DCA) หรือไม่?`)) return false;
+    }
+    
+    await updateJournalEntry(existing.id, {
+      shares: totalShares,
+      buyPrice: avgCost,
+      viMeta: entry.viMeta || existing.viMeta
+    });
+    return true;
+  } else {
+    if (newValue > maxPosLimit && maxPosLimit > 0) {
+      if (!confirm(`⚠️ น้ำหนักหุ้น ${entry.symbol} มูลค่า $${newValue.toFixed(2)} เกิน 20% ของพอร์ต VI ($${maxPosLimit.toFixed(2)}) ยืนยันที่จะซื้อหรือไม่?`)) return false;
+    }
+    entry.isApplied = true;
+    entry.createdAt = entry.createdAt || Date.now();
+    await addJournalEntry(entry);
+    return true;
+  }
+}
+
+export async function confirmTradeModal() {
+  const symbol    = document.getElementById('trade-symbol')?.value.trim().toUpperCase();
+  const buyPrice  = parseFloat(document.getElementById('trade-buy')?.value);
+  const sellPrice = parseFloat(document.getElementById('trade-sell')?.value) || null;
+  const shares    = parseFloat(document.getElementById('trade-shares')?.value) || 0;
+  const stopPrice = parseFloat(document.getElementById('trade-stop')?.value);
+  const target    = parseFloat(document.getElementById('trade-target')?.value);
+  const status    = document.getElementById('trade-status')?.value || 'open';
+  const type      = state.editingTradeId ? state.capitalEditingType : (document.body.classList.contains('vi-mode') ? 'vi' : 'trader');
+
+  if (!symbol || !buyPrice) {
+    showToast('กรุณาใส่ Ticker และ ราคาซื้อให้ครบ', 'warning');
+    return;
+  }
+
+  const entry = {
+    symbol, buyPrice, sellPrice, shares, status, type,
+    stopPrice:   isNaN(stopPrice) ? null : stopPrice,
+    targetPrice: isNaN(target)    ? null : target,
+  };
+  if (type === 'trader') {
+    entry.strategy  = document.getElementById('trade-strategy')?.value || '';
+    entry.chartLink = document.getElementById('trade-chart')?.value    || '';
+  }
+
+  if (state.editingTradeId) {
+    const all = await getJournalEntries(type);
+    const existing = all.find(e => e.id === state.editingTradeId);
+    if (existing) await updateJournalEntry({ ...existing, ...entry });
+  } else {
+    if (type === 'vi' && status === 'open') {
+      const saved = await _handleNewVIEntry(entry);
+      if (!saved) return;
+    } else {
+      entry.isApplied = true;
+      entry.createdAt = Date.now();
+      await addJournalEntry(entry);
+    }
+  }
+
+  await runCapitalSync(type);
+  closeTradeModal();
+}
+
 export function openTradeModal(type = 'trader') {
   state.editingTradeId     = null;
   state.tradeEditingType   = type;
@@ -697,7 +781,8 @@ export async function confirmQuickSave() {
 async function _confirmQuickSaveWithSymbol(symbol) {
   if (!state.quickSaveData) return;
   const { entry, stop, target, shares, accountSize, riskPct, plannedLoss, plannedWin, rrRatio, targetLabel, _viMode, _viMeta } = state.quickSaveData;
-  await addJournalEntry({
+  
+  const newEntry = {
     symbol, type: _viMode ? 'vi' : 'trader', status: 'open',
     buyPrice: entry, sellPrice: null, shares: shares || 0,
     stopPrice: stop, targetPrice: target || null,
@@ -706,7 +791,15 @@ async function _confirmQuickSaveWithSymbol(symbol) {
     rrRatio: rrRatio || null, targetLabel: targetLabel || (_viMode ? 'Fair Value' : '2R'),
     viMeta: _viMeta || null, strategy: '', chartLink: '',
     isApplied: true, createdAt: Date.now(),
-  });
+  };
+
+  if (_viMode) {
+    const saved = await _handleNewVIEntry(newEntry);
+    if (!saved) return;
+  } else {
+    await addJournalEntry(newEntry);
+  }
+
   closeQuickSave();
   showToast(`บันทึก ${symbol} เป็น Open Position แล้ว ✅`, 'success');
   await loadDashboard();
@@ -867,6 +960,34 @@ function _renderStats(entries) {
   _setText('dash-pf',           pf >= 99 ? 'MAX' : pf.toFixed(2));
   _setText('dash-max-dd',       maxDD > 0 ? `-${maxDD.toFixed(1)}%` : '—');
 
+  // Expectancy Calculation
+  const expectancy = applied > 0 ? pnl / applied : 0;
+  _setText('dash-expectancy',   `${expectancy >= 0 ? '+' : '-'}$${Math.abs(expectancy).toFixed(2)}`);
+
+  const expectAlert = document.getElementById('dash-expectancy-alert');
+  const expectMsg   = document.getElementById('dash-expectancy-msg');
+  if (expectAlert && expectMsg && tf === 'all') { // Only show forecast on All-Time
+    if (applied < 5) {
+      expectAlert.classList.remove('hidden');
+      expectMsg.innerHTML = `คุณเพิ่งปิดไป ${applied} ไม้ ระบบต้องการสถิติอย่างน้อย 5 ไม้เพื่อพยากรณ์ผลตอบแทนรายเดือน`;
+      expectAlert.className = 'mb-6 bg-gray-500/10 border border-gray-500/20 rounded-2xl p-4 flex items-start gap-3';
+    } else {
+      expectAlert.classList.remove('hidden');
+      const firstTradeDate = allClosed[0].createdAt;
+      const daysSinceFirst = Math.max(1, (now - firstTradeDate) / (1000 * 60 * 60 * 24));
+      const tradesPerMonth = (applied / daysSinceFirst) * 30;
+      const estMonthlyPnL  = expectancy * tradesPerMonth;
+      const estMonthlyReturn = (estMonthlyPnL / initCap) * 100;
+
+      const isGood = estMonthlyReturn >= 2;
+      expectAlert.className = `mb-6 border rounded-2xl p-4 flex items-start gap-3 ${isGood ? 'bg-green-500/10 border-green-500/20' : 'bg-yellow-500/10 border-yellow-500/20'}`;
+      expectMsg.innerHTML = `จากสถิติ Expectancy คุณคาดว่าจะทำกำไรได้ <b class="${isGood ? 'text-green-400' : 'text-yellow-400'}">${estMonthlyReturn >= 0 ? '+' : ''}${estMonthlyReturn.toFixed(1)}% ต่อเดือน</b><br>` + 
+        (isGood ? '🎉 เยี่ยมมาก! คุณเทรดได้ถึงเป้าหมายแล้ว รักษาวินัยต่อไป' : '⚠️ ยังไม่ถึงเป้า 2% ต่อเดือน ลองคัดหุ้นให้แม่นขึ้น หรือปล่อยกำไรให้รันไกลขึ้น');
+    }
+  } else if (expectAlert) {
+    expectAlert.classList.add('hidden'); // Hide on week/month view
+  }
+
   // Label updates
   const pnlLabel = document.querySelector('#dash-pnl')?.previousElementSibling;
   if (pnlLabel) pnlLabel.innerText = tf === 'all' ? 'All-Time PnL' : tf === 'month' ? '1M PnL' : '1W PnL';
@@ -948,11 +1069,15 @@ function _renderTraderJournal(el, entries) {
         let statusBadge  = '';
         if (atTarget) statusBadge = `<span class="text-[9px] font-bold bg-green-500/30 text-green-300 px-2 py-0.5 rounded-full border border-green-500/30">🎯 ถึงเป้าแล้ว!</span>`;
         else if (nearStop) statusBadge = `<span class="text-[9px] font-bold bg-red-500/30 text-red-300 px-2 py-0.5 rounded-full border border-red-500/30">⚠️ ใกล้ Stop!</span>`;
+        
+        const isTimeStop = (Date.now() - t.createdAt) > 14 * 24 * 60 * 60 * 1000;
+        const timeStopBadge = isTimeStop ? `<span class="text-[9px] font-bold bg-orange-500/30 text-orange-300 px-2 py-0.5 rounded-full border border-orange-500/30 mr-1" title="เปิดไม้นานกว่า 14 วัน">⏳ ถือนานไป?</span>` : '';
+
         return `
         <div class="mt-2 pt-2 border-t border-white/10 flex items-center justify-between">
           <div class="text-[10px] text-gray-400">ราคาล่าสุด <span class="text-white font-bold">$${cur.toFixed(2)}</span></div>
           <div class="flex items-center gap-2">
-            ${statusBadge}
+            ${timeStopBadge}${statusBadge}
             <div class="text-right">
               <div class="text-xs font-black ${isProfit ? 'text-green-400' : 'text-red-400'}">${isProfit ? '+' : ''}$${livePnl.toFixed(2)}</div>
               <div class="text-[10px] ${isProfit ? 'text-green-500' : 'text-red-500'}">${isProfit ? '+' : ''}${livePnlPct.toFixed(1)}%</div>
