@@ -271,6 +271,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Restore state when coming back from bfcache (e.g. after visiting guide.html in same window)
+  // pageshow fires with e.persisted=true when browser restores page from back-forward cache
+  // — visibilitychange alone won't fire in this case on some iOS/Safari versions
+  window.addEventListener('pageshow', e => {
+    if (e.persisted) {
+      loadDashboard();
+      loadWatchlist('trader');
+      loadWatchlist('vi');
+    }
+  });
+
   // ── Initial load ──
   await loadDashboard();
   loadWatchlist('trader');
