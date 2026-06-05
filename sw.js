@@ -1,7 +1,7 @@
 // sw.js — Production Service Worker for RiskFirst PWA
 // Strategy: Cache-first for app shell, Network-first for API calls
 
-const CACHE_VERSION = 'riskfirst-v2';
+const CACHE_VERSION = 'riskfirst-v3';
 
 // App shell — static assets to pre-cache on install
 const APP_SHELL = [

@@ -14,7 +14,7 @@ import { loadWatchlist, addWatchlist, removeWatchlist, addWatchlistDirect } from
 import { openCapitalModal, closeCapitalModal, saveCapital, syncPrices, renderReallocation } from './portfolio.js';
 import { updateRiskCalc, updateVIRiskCalc, applyToRiskCalc, applyToVIRisk, overrideCooldown } from './risk-calc.js';
 import { scanStock, scanAllWatchlist, selectTarget } from './trader-scan.js';
-import { scanVI, calcMOSScan } from './vi-scan.js';
+import { scanVI, scanAllVI, calcMOSScan } from './vi-scan.js';
 import {
   loadDashboard, setTimeframe, syncJournalPrices,
   openTradeModal, closeTradeModal, setTradeStatus, saveTrade, editTrade, deleteTrade,
@@ -24,7 +24,7 @@ import {
   logDividend, closeDividendModal, confirmDividend,
   openSyncModal, closeSyncModal, toggleSyncTrade, confirmSync,
   openPyramidModal, closePyramidModal, previewPyramid, confirmPyramid,
-  moveToBreakeven,
+  moveToBreakeven, toggleEntered,
   openPartialCloseModal, closePartialCloseModal, updatePartialPnl, confirmPartialClose,
 } from './journal.js';
 
@@ -43,7 +43,7 @@ Object.assign(window, {
   scanStock, scanAllWatchlist, selectTarget,
 
   // VI scan
-  scanVI, calcMOSScan,
+  scanVI, scanAllVI, calcMOSScan,
 
   // Watchlist
   addWatchlist, removeWatchlist, addWatchlistDirect,
@@ -59,7 +59,7 @@ Object.assign(window, {
   updateCTPnl, confirmCloseTrade, cancelTrade,
   saveFromRiskCalc, saveFromVIRisk, confirmQuickSave, closeQuickSave, saveFromScan,
   syncJournalPrices,
-  moveToBreakeven,
+  moveToBreakeven, toggleEntered,
   openPartialCloseModal, closePartialCloseModal, updatePartialPnl, confirmPartialClose,
   openPyramidModal, closePyramidModal, previewPyramid, confirmPyramid,
   logDividend, closeDividendModal, confirmDividend,
@@ -78,6 +78,7 @@ Object.assign(window, {
   importBackup: _importBackup,
   saveApiKey:   _saveApiKey,
   saveOrderTTL: _saveOrderTTL,
+  forceUpdate:  _forceUpdate,
 
 });
 
@@ -93,6 +94,35 @@ window.setRiskPct = function(val) {
     btn.classList.toggle('text-gray-400', !active);
   });
 };
+
+// ─── Force Update ─────────────────────────────────────────────────────────────
+
+async function _forceUpdate() {
+  const statusEl = document.getElementById('force-update-status');
+  if (statusEl) statusEl.classList.remove('hidden');
+
+  try {
+    // 1. Unregister all Service Workers
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+
+    // 2. Clear all Cache API caches (SW caches — JS/HTML files)
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+
+    // 3. Hard reload (bypass browser HTTP cache too)
+    window.location.reload(true);
+  } catch (e) {
+    if (statusEl) {
+      statusEl.textContent = '❌ เกิดข้อผิดพลาด: ' + e.message;
+      statusEl.classList.remove('animate-pulse');
+    }
+  }
+}
 
 // ─── Order TTL helpers ────────────────────────────────────────────────────────
 
@@ -227,6 +257,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('riskfirst:refresh',      () => loadDashboard());
   document.addEventListener('riskfirst:vi-activated', () => renderReallocation());
   document.addEventListener('vi-risk-shown',          () => updateVIRiskCalc());
+  document.addEventListener('riskfirst:watch-shown',  () => {
+    const type = document.body.classList.contains('vi-mode') ? 'vi' : 'trader';
+    loadWatchlist(type);
+  });
 
   // Auto-refresh when returning to the app from background (iOS/Mobile Safari PWA sync)
   document.addEventListener('visibilitychange', () => {

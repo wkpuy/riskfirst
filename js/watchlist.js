@@ -18,27 +18,87 @@ export async function loadWatchlist(type = 'trader') {
     return;
   }
 
+  const BADGE_TTL = 6 * 60 * 60 * 1000; // 6h — same as candle cache
+
   listEl.innerHTML = '';
   wl.sort((a, b) => b.addedAt - a.addedAt).forEach(item => {
     const isVI   = type === 'vi';
     const scanFn = isVI
       ? `document.getElementById('vi-scan-input').value='${item.symbol}'; switchTab('scan'); scanVI()`
       : `document.getElementById('trader-scan-input').value='${item.symbol}'; switchTab('scan'); scanStock()`;
-    const badge  = isVI
-      ? 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-600'
-      : 'pill bg-yellow-900/40 text-yellow-400 border border-yellow-500/20 text-[10px] px-2';
+
+    // ── Scan badge (Trader only) ──
+    let badgeHtml = `<span class="pill bg-yellow-900/40 text-yellow-400 border border-yellow-500/20 text-[10px] px-2">Tap to Scan</span>`;
+    if (!isVI) {
+      try {
+        const raw = localStorage.getItem(`wl_badge_${item.symbol}`);
+        if (raw) {
+          const b     = JSON.parse(raw);
+          const age   = Date.now() - b.ts;
+          const stale = age > BADGE_TTL;
+          const scoreColor = b.qualifies ? '#22c55e' : b.sepa >= 6 ? '#eab308' : '#f87171';
+          const sepaColor  = b.qualifies ? '#22c55e' : b.sepa >= 6 ? '#eab308' : '#f87171';
+          const opacity    = stale ? 'opacity-60' : '';
+          const staleTag   = stale ? '<span class="text-gray-500 text-[9px] ml-1">เก่า</span>' : '';
+          const hrsAgo     = Math.round(age / 36e5);
+          const timeLabel  = hrsAgo < 1 ? 'เมื่อกี้' : hrsAgo < 24 ? `${hrsAgo}ชม.ที่แล้ว` : `${Math.round(hrsAgo/24)}วันที่แล้ว`;
+          badgeHtml = `
+            <div class="flex flex-col gap-0.5 ${opacity}">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-black" style="color:${scoreColor}">
+                  ${b.qualifies ? '✅' : ''} SEPA <span style="color:${sepaColor}">${b.sepa}/8</span>
+                </span>
+                <span class="text-[10px] text-gray-400">RS ${b.rs}</span>
+                <span class="text-[10px] font-bold" style="color:${scoreColor}">${b.score.toFixed(0)}pts</span>
+                ${staleTag}
+              </div>
+              <div class="text-[9px] text-gray-500">${timeLabel}</div>
+            </div>`;
+        }
+      } catch {}
+    } else {
+      // VI badge
+      try {
+        const raw = localStorage.getItem(`vi_badge_${item.symbol}`);
+        if (raw) {
+          const b     = JSON.parse(raw);
+          const age   = Date.now() - b.ts;
+          const stale = age > BADGE_TTL;
+          const vc    = { 'STRONG BUY':'#15803d','BUY':'#1d4ed8','WATCH':'#92400e' }[b.verdict] ?? '#b91c1c';
+          const vb    = { 'STRONG BUY':'#dcfce7','BUY':'#dbeafe','WATCH':'#fef3c7' }[b.verdict] ?? '#fee2e2';
+          const vi    = { 'STRONG BUY':'💎','BUY':'✅','WATCH':'👀' }[b.verdict] ?? '🚫';
+          const opacity   = stale ? 'opacity-60' : '';
+          const staleTag  = stale ? '<span class="text-gray-400 text-[9px] ml-1">เก่า</span>' : '';
+          const hrsAgo    = Math.round(age / 36e5);
+          const timeLabel = hrsAgo < 1 ? 'เมื่อกี้' : hrsAgo < 24 ? `${hrsAgo}ชม.ที่แล้ว` : `${Math.round(hrsAgo/24)}วันที่แล้ว`;
+          badgeHtml = `
+            <div class="flex flex-col gap-0.5 ${opacity}">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-black" style="color:${vc}">${vi} ${b.viScore}/10</span>
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded" style="background:${vb};color:${vc}">${b.verdict}</span>
+                ${staleTag}
+              </div>
+              <div class="text-[9px] text-gray-400">${timeLabel}${b.price ? ` · $${b.price.toFixed(2)}` : ''}</div>
+            </div>`;
+        } else {
+          badgeHtml = `<span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-600">Tap to Scan</span>`;
+        }
+      } catch {
+        badgeHtml = `<span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-600">Tap to Scan</span>`;
+      }
+    }
 
     listEl.innerHTML += `
-      <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-xl p-4 flex justify-between items-center
+      <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-xl p-3 flex justify-between items-center
                   relative overflow-hidden cursor-pointer hover:border-[var(--accent-primary)] transition-colors active:opacity-70"
            onclick="${scanFn}">
-        <div class="flex items-center gap-3 relative z-10">
-          <div class="font-black text-xl tracking-tight">${item.symbol}</div>
-          <span class="${badge}">Tap to Scan</span>
+        <div class="flex items-center gap-3 relative z-10 min-w-0">
+          <div class="font-black text-xl tracking-tight shrink-0">${item.symbol}</div>
+          ${badgeHtml}
         </div>
         <button onclick="event.stopPropagation(); removeWatchlist('${item.symbol}', '${type}')"
                 class="w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center
-                       text-red-400 font-bold transition-colors relative z-10">✕</button>
+                       text-red-400 font-bold transition-colors relative z-10 shrink-0">✕</button>
       </div>`;
   });
 }

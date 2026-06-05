@@ -1,6 +1,7 @@
 // vi-scan.js — Value Investor scan (Finnhub metrics)
 
 import { fetchQuote, fetchProfile, fetchMetric } from './api.js';
+import { getWatchlistDB } from './db.js';
 import { state } from './state.js';
 import { showToast, escapeHtml } from './ui.js';
 
@@ -36,10 +37,109 @@ export async function scanVI() {
     state.lastViScanMeta = meta;
     localStorage.setItem('lastViScanMeta', JSON.stringify(meta));
 
+    // Auto-trigger MOS Calculator if fair value was pre-filled
+    setTimeout(() => {
+      const fairInput = document.getElementById('vi-mos-fair-scan');
+      if (fairInput?.value) calcMOSScan(quote.c);
+    }, 50);
+
   } catch (e) {
     area.innerHTML = `<div class="card py-10 text-center" style="background:#fff">
-      <p class="text-red-400 font-bold">เกิดข้อผิดพลาด: ${e.message}</p></div>`;
+      <p class="text-red-400 font-bold">เกิดข้อผิดพลาด: ${escapeHtml(e.message)}</p></div>`;
   }
+}
+
+export async function scanAllVI() {
+  const apiKey = localStorage.getItem('finnhubApiKey');
+  if (!apiKey) { showToast('กรุณาใส่ Finnhub API Key ใน ⚙️ ก่อน', 'warning'); return; }
+
+  const wl = await getWatchlistDB('vi');
+  if (!wl.length) { showToast('VI Watchlist ว่าง — เพิ่มหุ้นก่อน', 'warning'); return; }
+
+  const listEl = document.getElementById('vi-watch-list');
+  const symbols = wl.map(w => w.symbol);
+  const results = [];
+
+  // Finnhub free tier: 60 req/min. Each symbol = 3 calls → max 18 symbols/min safely.
+  const BATCH_SIZE = 18;
+  for (let i = 0; i < symbols.length; i++) {
+    // Rate-limit pause every BATCH_SIZE symbols (skip pause before first symbol)
+    if (i > 0 && i % BATCH_SIZE === 0) {
+      listEl.innerHTML = `<div class="text-center py-10 text-blue-500 font-bold text-sm">⏳ รอ rate limit (${i}/${symbols.length} เสร็จแล้ว)...</div>`;
+      await new Promise(r => setTimeout(r, 62_000)); // 62s ให้ quota reset
+    }
+
+    const sym = symbols[i];
+    listEl.innerHTML = `<div class="text-center py-10 text-blue-500 font-bold animate-pulse text-sm">⏳ Scanning <b>${sym}</b> (${i + 1}/${symbols.length})...</div>`;
+    try {
+      const [quote, profile, metricData] = await Promise.all([
+        fetchQuote(sym, apiKey, 10 * 60 * 1000),
+        fetchProfile(sym, apiKey),
+        fetchMetric(sym, apiKey),
+      ]);
+      if (!quote.c || quote.c === 0) { results.push({ symbol: sym, error: true }); continue; }
+      const meta = _buildMeta(sym, quote, profile, metricData);
+      localStorage.setItem(`vi_badge_${sym}`, JSON.stringify({
+        viScore: meta.viScore, verdict: meta.verdict, isGrowth: meta.isGrowth,
+        price: meta.price, ts: Date.now(),
+      }));
+      results.push({ ...meta, error: false });
+    } catch { results.push({ symbol: sym, error: true }); }
+  }
+
+  results.sort((a, b) => (b.viScore ?? -1) - (a.viScore ?? -1));
+
+  const _vc = v => ({ 'STRONG BUY':'#15803d', 'BUY':'#1d4ed8', 'WATCH':'#92400e' }[v] ?? '#b91c1c');
+  const _vb = v => ({ 'STRONG BUY':'#dcfce7', 'BUY':'#dbeafe', 'WATCH':'#fef3c7' }[v] ?? '#fee2e2');
+  const _vi = v => ({ 'STRONG BUY':'💎', 'BUY':'✅', 'WATCH':'👀' }[v] ?? '🚫');
+
+  listEl.innerHTML = `
+    <div class="flex justify-between items-center mb-3 px-1">
+      <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">VI Scan — เรียงตาม Score</span>
+      <div class="flex gap-3 items-center">
+        <button onclick="scanAllVI()" class="text-xs text-blue-500 font-bold underline">Scan Again</button>
+        <button onclick="loadWatchlist('vi')" class="text-xs text-gray-400 underline">Reset</button>
+      </div>
+    </div>`;
+
+  results.forEach(r => {
+    if (r.error) {
+      listEl.innerHTML += `
+        <div class="rounded-xl border border-gray-200 p-3 flex justify-between items-center bg-gray-50">
+          <span class="font-black text-gray-500">${r.symbol}</span>
+          <span class="text-xs text-gray-400">ดึงข้อมูลไม่ได้</span>
+        </div>`;
+      return;
+    }
+    const vc = _vc(r.verdict); const vb = _vb(r.verdict); const vi = _vi(r.verdict);
+    const modeBadge = r.isGrowth
+      ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:#fef3c7;color:#92400e">GROWTH</span>`
+      : `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:#ede9fe;color:#5b21b6">VALUE</span>`;
+    const scanFn = `document.getElementById('vi-scan-input').value='${r.symbol}';switchTab('scan');scanVI()`;
+    listEl.innerHTML += `
+      <div class="rounded-xl border p-3 cursor-pointer active:opacity-70 transition-all hover:shadow-sm"
+           style="background:${vb};border-color:${vc}40" onclick="${scanFn}">
+        <div class="flex items-center justify-between mb-1.5">
+          <div class="flex items-center gap-2">
+            <span class="font-black text-xl" style="color:#111">${r.symbol}</span>
+            ${modeBadge}
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-xs font-bold px-2 py-1 rounded-lg text-white" style="background:${vc}">${vi} ${r.verdict}</span>
+            <span class="font-black text-xl" style="color:${vc}">${r.viScore}/10</span>
+          </div>
+        </div>
+        <div class="flex gap-3 text-[10px]" style="color:${vc};opacity:0.75">
+          <span>$${r.price?.toFixed(2) ?? '—'}</span>
+          ${r.pe      != null ? `<span>P/E ${r.pe.toFixed(1)}</span>`                                 : ''}
+          ${r.roe     != null ? `<span>ROE ${r.roe.toFixed(1)}%</span>`                               : ''}
+          ${r.revGrow != null ? `<span>Rev ${r.revGrow > 0 ? '+' : ''}${r.revGrow.toFixed(0)}%</span>` : ''}
+          ${r.epsGrow != null ? `<span>EPS ${r.epsGrow > 0 ? '+' : ''}${r.epsGrow.toFixed(0)}%</span>` : ''}
+        </div>
+      </div>`;
+  });
+
+  showToast(`VI Scan All เสร็จ — ${results.filter(r => !r.error).length}/${symbols.length} หุ้น`, 'success');
 }
 
 export function calcMOSScan(currentPrice) {
@@ -135,6 +235,67 @@ function _buildChecks({ pe, pb, roe, roa, revGrow, epsGrow, beta, pegRatio, isGr
       ? { label: 'ใกล้ 52w High > 60% (Growth Momentum)', pass: posInRange > 0.60, why: 'หุ้น Growth แข็งแกร่งจะเกาะใกล้ 52w High เสมอ' }
       : { label: 'ใกล้ 52w Low < 40% (Margin of Safety)', pass: posInRange < 0.40, why: 'ราคาอยู่ในโซนต่ำ — Margin of Safety สูงกว่า' },
   ];
+}
+
+/**
+ * Auto-estimate Fair Value from available Finnhub metrics.
+ * Returns { value, method, note, confidence } where confidence is 'high'|'medium'|'low'.
+ */
+function _calcFairValue(price, pe, pb, epsGrow, isGrowth, high52) {
+  const eps = (pe != null && pe > 0 && pe < 200) ? price / pe : null;
+  const bv  = (pb != null && pb > 0)             ? price / pb : null;
+
+  // ── Growth: PEG = 1 (Peter Lynch) ──
+  if (isGrowth && eps != null && epsGrow != null && epsGrow > 0) {
+    const fairPE = Math.min(epsGrow, 30); // cap at 30 to avoid overvaluation
+    const fv     = fairPE * eps;
+    if (fv > 0 && fv < price * 5) {
+      return {
+        value:      fv,
+        method:     'PEG = 1 (Lynch)',
+        note:       `Fair P/E ${fairPE.toFixed(0)}x × EPS $${eps.toFixed(2)} (EPS growth ${epsGrow.toFixed(0)}%)`,
+        confidence: epsGrow > 10 ? 'high' : 'medium',
+      };
+    }
+  }
+
+  // ── Value: Graham Number ──
+  if (!isGrowth && eps != null && bv != null && eps > 0 && bv > 0) {
+    const graham = Math.sqrt(22.5 * eps * bv);
+    if (graham > 0 && isFinite(graham) && graham < price * 5) {
+      return {
+        value:      graham,
+        method:     'Graham Number',
+        note:       `√(22.5 × EPS $${eps.toFixed(2)} × BV $${bv.toFixed(2)})`,
+        confidence: 'high',
+      };
+    }
+  }
+
+  // ── Fallback: P/E only — Value stocks only (P/E 15× is inappropriate for Growth) ──
+  if (!isGrowth && eps != null && pe != null && pe > 0 && pe < 50) {
+    const fv = 15 * eps;
+    if (fv > 0) {
+      return {
+        value:      fv,
+        method:     'Conservative P/E 15x',
+        note:       `EPS $${eps.toFixed(2)} × fair P/E 15 (ค่าเฉลี่ยตลาดระยะยาว)`,
+        confidence: 'medium',
+      };
+    }
+  }
+
+  // ── Last resort: 52w High × 85% — only when high52 is a real data point (not price itself) ──
+  if (high52 > 0 && high52 !== price) {
+    return {
+      value:      high52 * 0.85,
+      method:     '52w High × 85%',
+      note:       `อ้างอิงจากจุดสูงสุดในรอบปี — ควรกรอก Fair Value เอง`,
+      confidence: 'low',
+    };
+  }
+
+  return null;
 }
 
 function _renderVICard(symbol, quote, profile, metricData) {
@@ -274,34 +435,56 @@ function _renderVICard(symbol, quote, profile, metricData) {
         </div>
       </div>
 
+      ${(() => {
+        const fv = _calcFairValue(price, pe, pb, epsGrow, isGrowth, high52);
+        const fvVal   = fv ? fv.value.toFixed(2) : '';
+        const confColor = { high:'#15803d', medium:'#92400e', low:'#b91c1c' }[fv?.confidence] ?? '#374151';
+        const confBg    = { high:'#dcfce7', medium:'#fef9c3', low:'#fee2e2' }[fv?.confidence] ?? '#f3f4f6';
+        const confLabel = { high:'ความน่าเชื่อถือ: สูง', medium:'ความน่าเชื่อถือ: ปานกลาง', low:'ความน่าเชื่อถือ: ต่ำ' }[fv?.confidence] ?? '';
+        const autoFvBadge = fv ? `
+          <div class="flex items-center justify-between mb-2 px-1">
+            <span class="text-[10px] font-bold" style="color:${confColor}">⚙️ ${fv.method}</span>
+            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded" style="background:${confBg};color:${confColor}">${confLabel}</span>
+          </div>
+          <div class="text-[10px] text-gray-400 mb-2 px-1">${fv.note}</div>` : '';
+        return `
       <div class="mb-4 rounded-2xl border border-blue-100 p-4" style="background:#f0f7ff">
-        <div class="text-xs font-bold uppercase tracking-wider mb-3" style="color:#1d4ed8">📐 Margin of Safety Calculator</div>
-        <p class="text-xs text-blue-600 mb-3">ใส่ Fair Value ที่คุณประเมินไว้ ระบบจะคำนวณ MOS และราคาที่ควรซื้อ</p>
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-xs font-bold uppercase tracking-wider" style="color:#1d4ed8">📐 Fair Value & MOS Calculator</div>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#dbeafe;color:#1d4ed8">แก้ได้</span>
+        </div>
+        <p class="text-xs text-blue-600 mb-3">ระบบประมาณ Fair Value ให้จาก metrics — กรอกเองได้เสมอ<br><span class="text-blue-400 font-normal">ไม่กระทบ Position Size — กด ⚡ ด้านล่างเพื่อคำนวณจำนวนหุ้นจริง</span></p>
+        ${autoFvBadge}
         <div class="flex gap-2 mb-3">
           <div class="flex-1">
             <label class="text-[10px] font-bold text-gray-400 flex items-center gap-1 mb-1">
               Fair Value ($)
-              <button type="button" onclick="showToast('Fair Value = มูลค่าที่แท้จริงของธุรกิจ ที่คุณประเมินจากการวิเคราะห์พื้นฐาน — ไม่ใช่ราคาตลาด แอปไม่ได้คำนวณให้เพราะขึ้นอยู่กับ assumptions ของแต่ละคน', 'info')" class="text-blue-400 leading-none">ℹ️</button>
+              <button type="button" data-fv-method="${escapeHtml(fv?.method ?? 'ไม่มีข้อมูลเพียงพอ')}"
+                      onclick="showToast('ระบบประมาณจาก ' + this.dataset.fvMethod + ' — เป็นค่าประมาณเท่านั้น ปรับตามการวิเคราะห์ของคุณเองได้', 'info')"
+                      class="text-blue-400 leading-none">ℹ️</button>
             </label>
             <input type="number" id="vi-mos-fair-scan" placeholder="0.00"
+                   value="${fvVal}"
                    oninput="calcMOSScan(${price.toFixed(2)})"
-                   class="w-full rounded-xl border border-blue-200 text-gray-800 font-bold text-lg px-3 py-2 focus:outline-none focus:border-blue-400" style="background:#fff">
+                   class="w-full rounded-xl font-bold text-lg px-3 py-2 focus:outline-none focus:border-blue-400"
+                   style="background:#fff;border:2px solid ${fv ? confColor + '60' : '#bfdbfe'};color:#111">
           </div>
           <div class="flex-1">
-            <label class="text-[10px] font-bold text-gray-400 block mb-1">MOS % ที่ต้องการ</label>
+            <label class="text-[10px] font-bold text-gray-400 block mb-1">แสดงราคาซื้อที่ MOS</label>
             <select id="vi-mos-pct-scan" onchange="calcMOSScan(${price.toFixed(2)})"
                     class="w-full rounded-xl border border-blue-200 text-gray-800 font-bold text-base px-3 py-2.5 focus:outline-none" style="background:#fff">
-              <option value="20">20% (ปกติ)</option>
-              <option value="30" selected>30% (แนะนำ)</option>
-              <option value="40">40% (ระมัดระวัง)</option>
-              <option value="50">50% (เข้มงวด)</option>
+              <option value="20">20%</option>
+              <option value="30" selected>30%</option>
+              <option value="40">40%</option>
+              <option value="50">50%</option>
             </select>
           </div>
         </div>
         <div id="vi-mos-result-scan" class="rounded-xl p-3 text-center" style="background:#e0eeff;color:#1d4ed8">
-          <div class="text-xs text-blue-500 mb-1">ใส่ Fair Value เพื่อดูผล</div>
+          <div class="text-xs text-blue-500 mb-1">${fv ? 'กำลังคำนวณ...' : 'ใส่ Fair Value เพื่อดูผล'}</div>
         </div>
-      </div>
+      </div>`;
+      })()}
 
       <button onclick="applyToVIRisk(${price.toFixed(2)})"
               class="w-full py-3.5 rounded-xl font-bold text-sm transition-colors mb-2" style="background:#1d4ed8;color:#fff">

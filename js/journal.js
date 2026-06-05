@@ -104,8 +104,29 @@ export async function syncJournalPrices() {
     });
     localStorage.setItem('priceCache', JSON.stringify(priceCache));
 
+    // ── Auto-confirm entry: ถ้าราคาถึง buyPrice แล้วและยังไม่ได้ยืนยัน ──
+    const allOpen = [...traderEntries, ...viEntries].filter(
+      t => t.status === 'open' && t.isEntered === false && t.shares > 0
+    );
+    const autoConfirmed = [];
+    for (const t of allOpen) {
+      const cur = state.journalPrices[t.symbol];
+      if (cur && cur >= t.buyPrice) {
+        await updateJournalEntry(t.id, { isEntered: true });
+        autoConfirmed.push(t.symbol);
+      }
+    }
+
     await loadDashboard();
-    showToast('อัปเดตราคาแล้ว ✅', 'success');
+
+    if (autoConfirmed.length > 0) {
+      showToast(
+        `⚡ ยืนยันซื้ออัตโนมัติ: ${[...new Set(autoConfirmed)].join(', ')} — ราคาถึง Entry แล้ว (กด ↩ ถ้าไม่ได้ซื้อจริง)`,
+        'success'
+      );
+    } else {
+      showToast('อัปเดตราคาแล้ว ✅', 'success');
+    }
   } finally {
     // BUG-L2: always reset button state even if an error occurs
     state.journalPricesSyncing = false;
@@ -114,6 +135,13 @@ export async function syncJournalPrices() {
 }
 
 // ─── Move to Breakeven ────────────────────────────────────────────────────────
+
+export async function toggleEntered(id, current) {
+  const isEntered = !current;
+  await updateJournalEntry(id, { isEntered });
+  showToast(isEntered ? '✅ ยืนยันซื้อแล้ว' : '↩️ ยกเลิกการยืนยัน', isEntered ? 'success' : 'info');
+  await loadDashboard();
+}
 
 export async function moveToBreakeven(id, buyPrice) {
   await updateJournalEntry(id, { stopPrice: parseFloat(buyPrice), plannedLoss: 0 });
@@ -943,12 +971,25 @@ function _renderTraderJournal(el, entries) {
         ? `<button onclick="openPartialCloseModal(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares})" class="py-2 rounded-lg text-xs font-bold border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors">✂️ ขายบางส่วน</button>`
         : `<div></div>`;
 
+      const isEntered  = !!t.isEntered;
+      const cardBorder = isEntered ? 'border-green-500/50' : 'border-[var(--border-dark)]';
+      const cardAccent = isEntered ? 'border-l-4 border-l-green-500' : '';
+      const enteredBadge = isEntered
+        ? `<span class="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded border border-green-500/30 font-bold">✅ ซื้อแล้ว</span>`
+        : `<button onclick="toggleEntered(${t.id}, false)"
+             class="text-[9px] text-gray-500 border border-dashed border-gray-600 px-1.5 py-0.5 rounded hover:border-green-500/50 hover:text-green-400 transition-colors"
+             title="แตะเพื่อยืนยันว่าซื้อแล้ว">☐ ยืนยันซื้อ</button>`;
+      const enteredUndo = isEntered
+        ? `<button onclick="toggleEntered(${t.id}, true)" class="text-[9px] text-gray-600 hover:text-gray-400 ml-auto" title="ยกเลิก">↩</button>`
+        : '';
+
       el.innerHTML += `
-        <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-xl p-3 mb-2">
+        <div class="bg-[var(--card-dark)] border ${cardBorder} ${cardAccent} rounded-xl p-3 mb-2 transition-all">
           <div class="flex justify-between items-start mb-2">
             <div class="flex-1 min-w-0">
               <div class="font-bold flex items-center gap-1.5 flex-wrap text-white mb-1">
                 ${safeSymbol} <span class="text-[9px] bg-blue-500/20 text-blue-500 px-1.5 py-0.5 rounded border border-blue-500/20">OPEN</span>
+                ${enteredBadge} ${enteredUndo}
                 ${tlabel} ${riskBadge} ${extras}
               </div>
               <div class="text-[10px] text-gray-400">

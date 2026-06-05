@@ -3,7 +3,7 @@
 import { fetchQuote, fetchProfile, fetchFinnhubCandles, fetchTDCandles, fetchEarnings } from './api.js';
 import { getCached } from './cache.js';
 import { CACHE_TTL, ATR_MULTIPLIER, ATR_MULTIPLIER_WIDE, POST_EARNINGS_DAYS } from './config.js';
-import { calcMA, calcATR, calcRSRating } from './indicators.js';
+import { calcMA, calcATR, calcRSRating, calcWeightedReturn } from './indicators.js';
 import { checkSEPA } from './rules.js';
 import { state } from './state.js';
 import { showToast } from './ui.js';
@@ -69,6 +69,7 @@ export async function scanStock() {
     const earningsInfo = await _fetchEarningsInfo(symbol, apiKey);
 
     _renderScanCard(area, { symbol, profile, earningsInfo, ...data });
+    _saveScanBadge(symbol, data.sepaResult.score, data.rsRating, data.compScore, data.sepaResult.qualifies);
 
     state.lastScanData  = { symbol, entry: data.price, stop: data.atrStop, target: Math.round((data.price + (data.price - data.atrStop) * 2) * 100) / 100, shares: null };
     state.lastTargetLabel = '2R';
@@ -76,6 +77,14 @@ export async function scanStock() {
   } catch (e) {
     area.innerHTML = `<div class="card text-center py-8"><p class="text-red-400 text-sm">Error: ${e.message}</p></div>`;
   }
+}
+
+// ─── Scan badge cache (localStorage) ─────────────────────────────────────────
+
+function _saveScanBadge(symbol, sepa, rs, score, qualifies) {
+  try {
+    localStorage.setItem(`wl_badge_${symbol}`, JSON.stringify({ sepa, rs, score, qualifies, ts: Date.now() }));
+  } catch {}
 }
 
 // ─── Public: scan all watchlist ───────────────────────────────────────────────
@@ -154,8 +163,26 @@ export async function scanAllWatchlist() {
     const candles = getCached(`tdC_${sym}`, CACHE_TTL.candles);
     if (!candles?.c) return { symbol: sym, name: profile?.name, price: quote.c, error: true };
 
-    const { sepa, rs, score, qualifies } = _calcComposite(candles, quote.c);
-    return { symbol: sym, name: profile?.name, price: quote.c, sepa, rs, score, qualifies };
+    const { sepa, rs, score, qualifies, rawReturn } = _calcComposite(candles, quote.c);
+    return { symbol: sym, name: profile?.name, price: quote.c, sepa, rs, score, qualifies, rawReturn };
+  });
+
+  // ── True cross-sectional RS percentile rank within scanned universe ──
+  const valid = results.filter(r => !r.error && r.rawReturn != null);
+  if (valid.length >= 2) {
+    valid.sort((a, b) => a.rawReturn - b.rawReturn); // ascending → index 0 = weakest
+    valid.forEach((r, i) => {
+      const trueRS = Math.round((i / (valid.length - 1)) * 98) + 1; // 1–99
+      // Adjust composite score: swap out old RS portion for true RS portion
+      const oldRSPortion  = (r.rs / 99) * 40;
+      const trueRSPortion = (trueRS / 99) * 40;
+      r.score = Math.max(0, r.score - oldRSPortion + trueRSPortion);
+      r.rs    = trueRS;
+    });
+  }
+  // Save badges with true RS after ranking is complete
+  results.forEach(r => {
+    if (!r.error) _saveScanBadge(r.symbol, r.sepa, r.rs, r.score, r.qualifies);
   });
 
   results.sort((a, b) => (b.score || 0) - (a.score || 0));
@@ -262,6 +289,9 @@ function _calcComposite(candles, price) {
   const ma200_1mo        = prevSlice.length >= 50 ? calcMA(prevSlice, Math.min(200, prevSlice.length)) : ma200;
   const high52w          = Math.max(...h);
   const low52w           = Math.min(...l);
+  const spyW             = spyCloses ? calcWeightedReturn(spyCloses) : 0;
+  const stockW           = calcWeightedReturn(c);
+  const rawReturn        = stockW - spyW;  // excess weighted return vs SPY (pre-rank)
   const rsRating         = calcRSRating(c, spyCloses);
   const sepa             = checkSEPA({ price, ma50, ma150, ma200, ma200_1moAgo: ma200_1mo, low52w, high52w, rsRating });
   const proximity        = Math.max(0, Math.min(1, 1 - (high52w - price) / high52w));
@@ -270,7 +300,7 @@ function _calcComposite(candles, price) {
   const recentVol        = vols.slice(-5).reduce((a, b) => a + b, 0) / 5;
   const volDry           = Math.max(0, Math.min(1, 1 - recentVol / avgVol));
   const score            = (rsRating / 99) * 40 + (sepa.score / 8) * 25 + proximity * 25 + volDry * 10;
-  return { sepa: sepa.score, rs: rsRating, score, qualifies: sepa.qualifies };
+  return { sepa: sepa.score, rs: rsRating, score, qualifies: sepa.qualifies, rawReturn };
 }
 
 async function _fetchEarningsInfo(symbol, apiKey) {

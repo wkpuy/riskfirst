@@ -27,6 +27,10 @@ export function switchTab(baseTabId) {
   if (baseTabId === 'journal') {
     document.dispatchEvent(new Event('riskfirst:refresh'));
   }
+  // Reload watchlist on every tab switch (handles back-navigation reload edge case)
+  if (baseTabId === 'watch') {
+    document.dispatchEvent(new Event('riskfirst:watch-shown'));
+  }
 }
 
 export function switchTraderTab(tabId) {

@@ -261,12 +261,21 @@ stop   = max(entry × 0.01, entry − ATR × 2.5)
 ```
 
 ### RS Rating (indicators.js)
+**IBD-style 4-quarter weighted return** (ไม่ใช่ simple 1-year อีกต่อไป):
 ```
-stockRet = (close[-1] - close[-252]) / close[-252] × 100
-spyRet   = (spy[-1]   - spy[-252])   / spy[-252]   × 100
-RS       = clamp(round(50 + (stockRet - spyRet) × 0.6), 1, 99)
+Q = 63 bars ≈ 1 quarter
+weightedRet = Q1×0.4 + Q2×0.2 + Q3×0.2 + Q4×0.2
+  Q1 = return ของ 63 bars ล่าสุด (น้ำหนักสูงสุด)
+  Q2 = return ของ bar 64–126
+  Q3 = return ของ bar 127–189
+  Q4 = return ของ bar 190–252
+
+RS (single scan vs SPY) = clamp(round(50 + (stockW - spyW) × 0.6), 1, 99)
+RS (Scan All)           = true cross-sectional percentile rank ภายใน universe ที่ scan
 ```
-ใช้ window 252 bars เดียวกันทั้ง stock และ SPY
+- `calcWeightedReturn(closes)` → raw weighted return (exported)
+- `calcRSRating(closes, spyCloses)` → 1–99 vs SPY
+- Scan All: หลัง compute ทุกตัว → sort by `rawReturn` → rank → RS 1–99 จริงๆ
 
 ---
 
@@ -355,8 +364,8 @@ python3 -m http.server 3456
 
 | Priority | รายการ | หมายเหตุ |
 |----------|--------|---------|
-| 🟡 Medium | RS Rank true percentile | ตอนนี้ใช้ excess return vs SPY (approximate) — ยังไม่ใช่ true cross-sectional rank |
-| 🟡 Medium | Watchlist scan status badge | แสดง SEPA score / last scan time บน watchlist card โดยไม่ต้อง scan ซ้ำ |
+| ✅ Done | RS Rank true percentile | IBD-style 4-quarter weighted formula + true cross-sectional rank ใน Scan All |
+| ✅ Done | Watchlist scan status badge | แสดง SEPA X/8 · RS · Score · เวลา scan ล่าสุด — `wl_badge_<SYM>` cache 6h |
 | ✅ Done | Order TTL user-configurable | ปรับได้ใน ⚡ Trader Settings (1–168 ชม.) — `order_ttl_hours` ใน localStorage |
 | ✅ Done | Monthly Cooldown override | ปุ่ม "Override (รับทราบความเสี่ยง)" ใน Defensive Mode badge — session-only, reset on reload |
 | 🟢 Low | Top 5 Picks daily cron | Auto-scan universe ทุกเช้า (ต้องมี backend) |
