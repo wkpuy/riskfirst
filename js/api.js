@@ -49,6 +49,39 @@ export async function fetchEarnings(symbol, apiKey) {
   return data;
 }
 
+export async function fetchEarningsCalendar(symbol, apiKey) {
+  const key = 'fhEC_' + symbol;
+  const hit = getCached(key, 6 * 60 * 60 * 1000); // 6 hours
+  if (hit) return hit;
+  const now = new Date();
+  const to  = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // +14 days
+  
+  const fromStr = now.toISOString().split('T')[0];
+  const toStr   = to.toISOString().split('T')[0];
+  
+  const data = await fetch(`${FH}/calendar/earnings?from=${fromStr}&to=${toStr}&symbol=${symbol}&token=${apiKey}`).then(r => r.json());
+  if (data.earningsCalendar) setCache(key, data.earningsCalendar);
+  return data.earningsCalendar || [];
+}
+
+export async function fetchRecentNews(symbol, apiKey) {
+  const key = 'fhNews_' + symbol;
+  const hit = getCached(key, 60 * 60 * 1000); // 1 hour cache
+  if (hit) return hit;
+  const now = new Date();
+  const from = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000); // -3 days
+  
+  const fromStr = from.toISOString().split('T')[0];
+  const toStr   = now.toISOString().split('T')[0];
+  
+  const data = await fetch(`${FH}/company-news?symbol=${symbol}&from=${fromStr}&to=${toStr}&token=${apiKey}`).then(r => r.json());
+  if (Array.isArray(data)) {
+    setCache(key, data);
+    return data;
+  }
+  return [];
+}
+
 /**
  * Finnhub daily candles for the last 370 days.
  * Returns parsed {c,h,l,v} or null if too few bars.

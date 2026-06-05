@@ -1,6 +1,6 @@
 // trader-scan.js — Trader scan (single + scan all watchlist)
 
-import { fetchQuote, fetchProfile, fetchFinnhubCandles, fetchTDCandles, fetchEarnings } from './api.js';
+import { fetchQuote, fetchProfile, fetchFinnhubCandles, fetchTDCandles, fetchEarnings, fetchEarningsCalendar, fetchRecentNews } from './api.js';
 import { getCached } from './cache.js';
 import { CACHE_TTL, ATR_MULTIPLIER, ATR_MULTIPLIER_WIDE, POST_EARNINGS_DAYS } from './config.js';
 import { calcMA, calcATR, calcRSRating, calcWeightedReturn } from './indicators.js';
@@ -67,8 +67,9 @@ export async function scanStock() {
 
     const data = _computeIndicators(quote, candles, symbol);
     const earningsInfo = await _fetchEarningsInfo(symbol, apiKey);
+    const recentNews   = await fetchRecentNews(symbol, apiKey);
 
-    _renderScanCard(area, { symbol, profile, earningsInfo, ...data });
+    _renderScanCard(area, { symbol, profile, earningsInfo, recentNews, ...data });
     _saveScanBadge(symbol, data.sepaResult.score, data.rsRating, data.compScore, data.sepaResult.qualifies);
 
     state.lastScanData  = { symbol, entry: data.price, stop: data.atrStop, target: Math.round((data.price + (data.price - data.atrStop) * 2) * 100) / 100, shares: null };
@@ -324,10 +325,25 @@ function _calcComposite(candles, price) {
 
 async function _fetchEarningsInfo(symbol, apiKey) {
   try {
+    const todayMs = new Date().setHours(0,0,0,0);
+    
+    // 1. Try real calendar first
+    const calendar = await fetchEarningsCalendar(symbol, apiKey);
+    if (calendar && calendar.length > 0) {
+      // Find the upcoming earnings
+      const upcoming = calendar.find(e => new Date(e.date).getTime() >= todayMs);
+      if (upcoming) {
+        const nextEst = new Date(upcoming.date);
+        nextEst.setUTCHours(13, 30, 0, 0); // Approximate Market Open (13:30 UTC) for countdown
+        const daysUntilNext = Math.round((nextEst.getTime() - todayMs) / (24 * 60 * 60 * 1000));
+        return { nextEst, daysUntilNext, daysAgo: -daysUntilNext, isConfirmed: true };
+      }
+    }
+
+    // 2. Fallback to historical guessing
     const data = await fetchEarnings(symbol, apiKey);
     if (!Array.isArray(data) || !data.length) return null;
 
-    // Sort descending → most recent first
     const sorted = [...data]
       .filter(d => d.period)
       .sort((a, b) => new Date(b.period) - new Date(a.period));
@@ -335,45 +351,57 @@ async function _fetchEarningsInfo(symbol, apiKey) {
     if (!sorted.length) return null;
     const lastDate = new Date(sorted[0].period);
 
-    // ── Compute average reporting interval from actual historical dates ──
-    // Using fixed 90-day assumption is inaccurate — companies vary (85–105 days).
-    // Average the gaps between the last N quarters we actually have.
-    let avgIntervalMs = 91 * 24 * 60 * 60 * 1000; // fallback: 91 days
+    let avgIntervalMs = 91 * 24 * 60 * 60 * 1000;
     if (sorted.length >= 2) {
       const gaps = [];
       for (let i = 0; i < sorted.length - 1; i++) {
         gaps.push(new Date(sorted[i].period) - new Date(sorted[i + 1].period));
       }
       avgIntervalMs = gaps.reduce((a, b) => a + b, 0) / gaps.length;
-      // Sanity check: clamp to 60–120 days (anything outside is data error)
       avgIntervalMs = Math.max(60, Math.min(120, Math.round(avgIntervalMs / (24 * 60 * 60 * 1000)))) * 24 * 60 * 60 * 1000;
     }
 
     const nextEst       = new Date(lastDate.getTime() + avgIntervalMs);
-    const daysUntilNext = Math.round((nextEst - Date.now()) / (24 * 60 * 60 * 1000));
-    return { lastDate, nextEst, daysUntilNext, daysAgo: -daysUntilNext };
+    nextEst.setUTCHours(13, 30, 0, 0);
+    const daysUntilNext = Math.round((nextEst.getTime() - todayMs) / (24 * 60 * 60 * 1000));
+    return { lastDate, nextEst, daysUntilNext, daysAgo: -daysUntilNext, isConfirmed: false };
   } catch { return null; }
 }
 
 function _earningsBanners(earningsInfo, price, atr) {
   if (!earningsInfo) return { earningsBanner: '', atrNote: '', postEarningsBadge: '' };
-  const { daysUntilNext, daysAgo, nextEst } = earningsInfo;
+  const { daysUntilNext, daysAgo, nextEst, isConfirmed } = earningsInfo;
   const dateStr = nextEst.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+  const estTag  = isConfirmed ? 'ยืนยัน' : 'คาดการณ์';
 
   let earningsBanner = '', atrNote = '', postEarningsBadge = '';
 
-  if (daysUntilNext >= 0 && daysUntilNext <= 5) {
+  if (daysUntilNext >= 0 && daysUntilNext <= 3) {
+    
+    // Calculate hours/minutes if it's less than 2 days
+    let timeText = `ใน ${daysUntilNext} วัน`;
+    if (daysUntilNext <= 1) {
+       const msDiff = nextEst.getTime() - Date.now();
+       if (msDiff > 0) {
+         const hours = Math.floor(msDiff / (1000 * 60 * 60));
+         const mins = Math.floor((msDiff % (1000 * 60 * 60)) / (1000 * 60));
+         timeText = `ในอีก ${hours} ชม. ${mins} นาที`;
+       } else {
+         timeText = `วันนี้!`;
+       }
+    }
+    
     earningsBanner = `
       <div class="flex items-start gap-2 rounded-xl p-3 mb-3 border" style="background:#fee2e2;border-color:#fca5a5">
-        <span class="text-xl shrink-0">🚫</span>
+        <span class="text-xl shrink-0 animate-pulse">🚫</span>
         <div>
-          <div class="text-xs font-black text-red-700">อย่าเข้า — คาดงบออกใน ~${daysUntilNext} วัน (~${dateStr})</div>
-          <div class="text-[10px] text-red-600 mt-0.5">ประมาณจาก interval งบย้อนหลังจริง · ราคาอาจ Gap ได้ทั้ง 2 ทาง แนะนำรอหลังงบออกแล้วดูทิศทาง</div>
+          <div class="text-xs font-black text-red-700">Earnings ${timeText} (${dateStr})</div>
+          <div class="text-[10px] text-red-600 mt-0.5">ระวัง! ราคาอาจ Gap ได้ 10-20% ทั้งสองทิศทาง แนะนำรอหลังงบออกแล้วค่อยตัดสินใจ</div>
         </div>
       </div>`;
-    if (atr) atrNote = `<br><span class="text-yellow-400">ถ้าจะเข้าก่อนงบ แนะนำ Stop กว้างขึ้น $${(price - atr * ATR_MULTIPLIER_WIDE).toFixed(2)} (${ATR_MULTIPLIER_WIDE}×ATR)</span>`;
+    if (atr) atrNote = `<br><span class="text-yellow-400">ถ้าเข้าตอนนี้ แนะนำ Stop กว้างขึ้น $${(price - atr * ATR_MULTIPLIER_WIDE).toFixed(2)} (${ATR_MULTIPLIER_WIDE}×ATR)</span>`;
 
-  } else if (daysUntilNext > 5 && daysUntilNext <= 14) {
+  } else if (daysUntilNext > 3 && daysUntilNext <= 14) {
     earningsBanner = `
       <div class="flex items-start gap-2 rounded-xl p-3 mb-3 border" style="background:#fef3c7;border-color:#fcd34d">
         <span class="text-xl shrink-0">⚠️</span>
@@ -401,7 +429,7 @@ function _earningsBanners(earningsInfo, price, atr) {
 
 function _renderScanCard(container, d) {
   const { symbol, profile, price, change, changePct, sepaResult, rsRating, rsSource, compScore,
-          atrStop, ma50, ma150, ma200, high52w, atr, earningsInfo, hasFullData } = d;
+          atrStop, ma50, ma150, ma200, high52w, atr, earningsInfo, recentNews, hasFullData } = d;
 
   const pass    = sepaResult.qualifies;
   const name    = profile?.name || symbol;
@@ -409,6 +437,14 @@ function _renderScanCard(container, d) {
   const chSign  = change >= 0 ? '+' : '';
 
   const { earningsBanner, atrNote, postEarningsBadge } = _earningsBanners(earningsInfo, price, atr);
+  
+  // News Badge
+  let newsBadge = '';
+  if (recentNews && recentNews.length > 0) {
+    // Save to global state so modal can read it
+    window.currentStockNews = recentNews;
+    newsBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 cursor-pointer hover:bg-blue-500/30 transition-colors" onclick="openNewsModal()">📰 News (${recentNews.length})</span>`;
+  }
 
   const failedNames = sepaResult.rules.filter(r => !r.passed).map(r => r.name);
   const briefing    = pass
@@ -442,6 +478,7 @@ function _renderScanCard(container, d) {
             <span class="text-xs text-gray-400">${name}</span>
             <span class="pill ${pass ? 'pill-green' : 'pill-red'}">${pass ? 'PASS' : 'FAIL'}</span>
             ${postEarningsBadge}
+            ${newsBadge}
           </div>
         </div>
         <div class="text-right">

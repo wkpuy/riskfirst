@@ -58,7 +58,27 @@ export function initDB() {
   });
 }
 
-export function getPortfolio(type = 'trader') {
+export async function ensureDB() {
+  if (!db) {
+    await initDB();
+    return;
+  }
+  try {
+    // Attempt a dummy transaction to test connection
+    db.transaction('portfolio', 'readonly');
+  } catch (e) {
+    if (e.name === 'InvalidStateError' || e.name === 'DOMException' || e.message.includes('close')) {
+      console.warn('DB connection lost, reconnecting...');
+      db = null;
+      await initDB();
+    } else {
+      throw e;
+    }
+  }
+}
+
+export async function getPortfolio(type = 'trader') {
+  await ensureDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('portfolio', 'readonly');
     const store = tx.objectStore('portfolio');
@@ -68,7 +88,8 @@ export function getPortfolio(type = 'trader') {
   });
 }
 
-export function updatePortfolio(data, type = 'trader') {
+export async function updatePortfolio(data, type = 'trader') {
+  await ensureDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('portfolio', 'readwrite');
     const store = tx.objectStore('portfolio');
@@ -79,7 +100,8 @@ export function updatePortfolio(data, type = 'trader') {
   });
 }
 
-export function addJournalEntry(entry) {
+export async function addJournalEntry(entry) {
+  await ensureDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('journal', 'readwrite');
     const store = tx.objectStore('journal');
@@ -93,7 +115,8 @@ export function addJournalEntry(entry) {
   });
 }
 
-export function getJournalEntries(type = 'trader') {
+export async function getJournalEntries(type = 'trader') {
+  await ensureDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('journal', 'readonly');
     const store = tx.objectStore('journal');
@@ -104,7 +127,8 @@ export function getJournalEntries(type = 'trader') {
   });
 }
 
-export function updateJournalEntry(entryOrId, partial = null) {
+export async function updateJournalEntry(entryOrId, partial = null) {
+  await ensureDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('journal', 'readwrite');
     const store = tx.objectStore('journal');
@@ -128,7 +152,8 @@ export function updateJournalEntry(entryOrId, partial = null) {
   });
 }
 
-export function deleteJournalEntry(id) {
+export async function deleteJournalEntry(id) {
+  await ensureDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('journal', 'readwrite');
     const store = tx.objectStore('journal');
@@ -140,7 +165,8 @@ export function deleteJournalEntry(id) {
 }
 
 // Watchlist CRUD
-export function addWatchlistDB(symbol, type = 'trader') {
+export async function addWatchlistDB(symbol, type = 'trader') {
+  await ensureDB();
   // BUG-M5: removed async-in-Promise antipattern — use plain callbacks instead
   return new Promise((resolve, reject) => {
     const tx    = db.transaction('watchlist', 'readwrite');
@@ -157,7 +183,8 @@ export function addWatchlistDB(symbol, type = 'trader') {
   });
 }
 
-export function getWatchlistDB(type = 'trader') {
+export async function getWatchlistDB(type = 'trader') {
+  await ensureDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('watchlist', 'readonly');
     const store = tx.objectStore('watchlist');
@@ -168,7 +195,8 @@ export function getWatchlistDB(type = 'trader') {
   });
 }
 
-export function removeWatchlistDB(symbol, type = 'trader') {
+export async function removeWatchlistDB(symbol, type = 'trader') {
+  await ensureDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction('watchlist', 'readwrite');
     const store = tx.objectStore('watchlist');
@@ -211,7 +239,8 @@ export async function exportAllData() {
   };
 }
 
-export function importAllData(data) {
+export async function importAllData(data) {
+  await ensureDB();
   return new Promise((resolve, reject) => {
     if (!data || (!data.journal && !data.journalTrader)) {
       return reject(new Error('Invalid backup data format'));

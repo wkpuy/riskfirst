@@ -1062,6 +1062,30 @@
     </div>
   </div>
 
+  <!-- News Modal -->
+  <div id="news-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex flex-col justify-end transition-opacity opacity-0 pointer-events-auto" onclick="if(event.target===this) closeNewsModal()">
+    <div id="news-sheet" class="bg-[var(--bg-dark)] w-full rounded-t-3xl p-6 border-t border-[var(--border-dark)] transform translate-y-full transition-transform pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.5)] max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center mb-4 shrink-0">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          <span class="text-2xl">📰</span> ข่าวล่าสุด (Last 3 Days)
+        </h3>
+        <button onclick="closeNewsModal()" class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      
+      <div class="mb-4 shrink-0">
+        <p class="text-xs text-gray-400 leading-relaxed">
+          กดปุ่ม Copy เพื่อคัดลอกพาดหัวข่าวไปให้ ChatGPT ช่วยวิเคราะห์ว่าส่งผล <b>บวก</b> หรือ <b>ลบ</b> ต่อราคาหุ้น
+        </p>
+      </div>
+
+      <div id="news-list-container" class="overflow-y-auto space-y-3 pb-6 flex-1">
+        <!-- News items will be injected here -->
+      </div>
+    </div>
+  </div>
+
   <!-- Sync Capital Modal -->
   <div id="sync-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] hidden flex flex-col justify-end transition-opacity opacity-0 pointer-events-auto">
     <div class="bg-[var(--card-dark)] w-full rounded-t-3xl border-t border-[var(--border-dark)] p-5 transform translate-y-full transition-transform" id="sync-sheet">

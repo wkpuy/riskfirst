@@ -3,7 +3,7 @@
 // functions to window so HTML onclick attributes can reach them.
 
 import { initDB, exportAllData, importAllData } from './db.js';
-import { showToast, showConfirm } from './ui.js';
+import { showToast, showConfirm, openNewsModal, closeNewsModal, copyNewsHeadline } from './ui.js';
 import {
   switchModule, switchTab, switchTraderTab,
   openGlobalLogicModal, closeGlobalLogicModal,
@@ -35,6 +35,7 @@ Object.assign(window, {
   switchModule, switchTab, switchTraderTab,
   openGlobalLogicModal, closeGlobalLogicModal,
   openStockLogicModal, closeStockLogicModal, copyPrompt,
+  openNewsModal, closeNewsModal, copyNewsHeadline,
 
   // Capital
   openCapitalModal, closeCapitalModal, saveCapital,

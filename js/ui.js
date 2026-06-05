@@ -69,31 +69,71 @@ export function showConfirm(message, onConfirm, onCancel) {
   el.onclick = e => { if (e.target === el) close(); };
 }
 
-// ─── Modal animation helpers ──────────────────────────────────────────────────
-// Two patterns:
-//   'slide-up'  — sheet slides up from bottom   (transform: translateY)
-//   'scale'     — dialog scales up from center   (transform: scale)
+// ─── Modals ───────────────────────────────────────────────────────────────────
 
-export function openModal(modalId, sheetId, pattern = 'slide-up') {
-  const modal = document.getElementById(modalId);
-  const sheet = document.getElementById(sheetId);
-  if (!modal || !sheet) return;
-
-  modal.classList.remove('hidden');
+export function openModal(modalId, sheetId) {
+  const m = document.getElementById(modalId);
+  const s = document.getElementById(sheetId);
+  if (!m || !s) return;
+  m.classList.remove('hidden');
+  m.classList.add('flex');
   setTimeout(() => {
-    modal.classList.remove('opacity-0');
-    if (pattern === 'scale')    sheet.classList.remove('scale-95');
-    if (pattern === 'slide-up') sheet.classList.remove('translate-y-full');
+    m.classList.remove('opacity-0');
+    s.classList.remove('translate-y-full');
   }, 10);
 }
 
-export function closeModal(modalId, sheetId, pattern = 'slide-up') {
-  const modal = document.getElementById(modalId);
-  const sheet = document.getElementById(sheetId);
-  if (!modal || !sheet) return;
+export function closeModal(modalId, sheetId) {
+  const m = document.getElementById(modalId);
+  const s = document.getElementById(sheetId);
+  if (!m || !s) return;
+  m.classList.add('opacity-0');
+  s.classList.add('translate-y-full');
+  setTimeout(() => {
+    m.classList.add('hidden');
+    m.classList.remove('flex');
+  }, 300);
+}
 
-  modal.classList.add('opacity-0');
-  if (pattern === 'scale')    sheet.classList.add('scale-95');
-  if (pattern === 'slide-up') sheet.classList.add('translate-y-full');
-  setTimeout(() => modal.classList.add('hidden'), 300);
+export function openNewsModal() {
+  const container = document.getElementById('news-list-container');
+  if (!container) return;
+  
+  const news = window.currentStockNews || [];
+  if (news.length === 0) {
+    container.innerHTML = '<div class="text-center text-gray-500 py-8">ไม่พบข่าวล่าสุดใน 3 วันที่ผ่านมา</div>';
+  } else {
+    container.innerHTML = news.map(n => {
+      const date = new Date(n.datetime * 1000).toLocaleString('th-TH', { 
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+      });
+      const safeHeadline = escapeHtml(n.headline);
+      const safeUrl = escapeHtml(n.url);
+      const copyText = escapeHtml(`ช่วยวิเคราะห์ข่าวนี้ให้หน่อยว่ามีผลบวกหรือลบต่อราคาหุ้น:\n"${n.headline}"`);
+      
+      return `
+      <div class="bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col gap-2 relative group">
+        <div class="text-[10px] text-gray-400">${date} — <span class="text-blue-400">${escapeHtml(n.source)}</span></div>
+        <a href="${safeUrl}" target="_blank" class="text-sm font-bold text-white hover:text-blue-300 transition-colors leading-snug block pr-8">
+          ${safeHeadline}
+        </a>
+        <button onclick="copyNewsHeadline('${copyText}')" class="absolute top-3 right-3 w-7 h-7 bg-white/10 hover:bg-purple-500 rounded-lg flex items-center justify-center transition-colors text-white opacity-60 hover:opacity-100" title="Copy to ask AI">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+      </div>`;
+    }).join('');
+  }
+  openModal('news-modal', 'news-sheet');
+}
+
+export function closeNewsModal() {
+  closeModal('news-modal', 'news-sheet');
+}
+
+export function copyNewsHeadline(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('คัดลอกพาดหัวข่าวแล้ว! วางใน ChatGPT ได้เลย', 'success');
+  }).catch(() => {
+    showToast('คัดลอกไม่สำเร็จ', 'error');
+  });
 }
