@@ -1371,8 +1371,20 @@ async function _checkSectorCorrelation(symbol, entryObj) {
     }
     
     if (peers.length > 0) {
-      const msg = `⚠️ คำเตือนความเสี่ยงกลุ่มอุตสาหกรรม (Sector Correlation)\n\nคุณมีหุ้นกลุ่ม [ ${profile.finnhubIndustry} ] อยู่ในพอร์ตแล้ว (${peers.join(', ')})\nการซื้อ ${symbol} เพิ่ม จะทำให้ความเสี่ยงพอร์ตกระจุกตัว หากกลุ่มนี้โดนเทขาย\n\nยืนยันที่จะเข้าซื้อหรือไม่?`;
-      if (!confirm(msg)) return false;
+      const msg = `
+        <span class="text-4xl block mb-2">⚠️</span>
+        <span class="text-yellow-400 text-lg font-black block mb-2">Sector Correlation Warning</span>
+        <span class="text-gray-300 block mb-3 text-left px-2 leading-relaxed">
+          คุณมีหุ้นกลุ่ม <b><span class="text-blue-400">${profile.finnhubIndustry}</span></b> อยู่ในพอร์ตแล้ว<br>
+          <span class="text-xs text-gray-500">(${peers.join(', ')})</span>
+        </span>
+        <span class="text-red-400 font-bold block bg-red-500/10 p-2 rounded-lg">
+          การซื้อ ${symbol} เพิ่ม จะทำให้ความเสี่ยงพอร์ตกระจุกตัว หากกลุ่มนี้โดนเทขายรวดเดียว!
+        </span>
+      `;
+      return new Promise((resolve) => {
+        showConfirm(msg, () => resolve(true), () => resolve(false));
+      });
     }
   } catch (e) { console.warn('Correlation check failed', e); }
   return true;
