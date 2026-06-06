@@ -588,9 +588,10 @@ export async function deleteTrade(id, type = 'trader') {
 
 // ─── Close Trade Modal ────────────────────────────────────────────────────────
 
-export function openCloseTradeModal(id, symbol, buyPrice, shares, targetPrice) {
+export function openCloseTradeModal(id, symbol, buyPrice, shares, targetPrice, curPrice) {
   state.closeTradeId = id;
   const tp = _sanitizeFloat(targetPrice);
+  const cur = _sanitizeFloat(curPrice);
 
   _setText('ct-symbol', symbol);
   document.getElementById('ct-info').innerHTML = `
@@ -599,7 +600,7 @@ export function openCloseTradeModal(id, symbol, buyPrice, shares, targetPrice) {
     ${tp ? `<div class="flex justify-between"><span>Target</span><span class="font-bold text-green-400">$${tp.toFixed(2)}</span></div>` : ''}`;
 
   const sellInput = document.getElementById('ct-sell-price');
-  sellInput.value              = tp ? tp.toFixed(2) : '';
+  sellInput.value              = cur ? cur.toFixed(2) : (tp ? tp.toFixed(2) : '');
   sellInput.dataset.buyPrice   = buyPrice;
   sellInput.dataset.shares     = shares;
   sellInput.dataset.viMode     = 'false';
@@ -649,13 +650,20 @@ export function updateCTPnl() {
   const shares = parseFloat(sellInput?.dataset.shares);
   if (!sell || !buy || !shares) return;
 
-  const pnl   = (sell - buy) * shares;
-  const pct   = ((sell - buy) / buy) * 100;
-  const color = pnl >= 0 ? '#22c55e' : '#ef4444';
+  const isProfit = pnl >= 0;
+  const color = isProfit ? '#22c55e' : '#ef4444';
   preview.innerHTML = `
     <div class="text-xs text-gray-400 mb-1">PnL</div>
-    <div class="text-2xl font-black" style="color:${color}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</div>
-    <div class="text-xs" style="color:${color}">${pnl >= 0 ? '+' : ''}${pct.toFixed(2)}%</div>`;
+    <div class="text-2xl font-black" style="color:${color}">${isProfit ? '+' : ''}$${pnl.toFixed(2)}</div>
+    <div class="text-xs" style="color:${color}">${isProfit ? '+' : ''}${pct.toFixed(2)}%</div>`;
+
+  const btn = document.getElementById('btn-ct-confirm');
+  if (btn) {
+    btn.innerHTML = isProfit ? '✅ ทำกำไร — ปิดไม้' : '✂️ ตัดขาดทุน — ปิดไม้';
+    btn.className = isProfit 
+      ? 'w-full py-3.5 text-base font-bold mb-2 rounded-xl border border-green-500/40 text-green-400 hover:bg-green-500/10 transition-colors' 
+      : 'w-full py-3.5 text-base font-bold mb-2 rounded-xl border border-red-500/40 text-red-400 hover:bg-red-500/10 transition-colors';
+  }
 }
 
 export async function confirmCloseTrade() {
@@ -1092,7 +1100,7 @@ function _renderTraderJournal(el, entries) {
           ? `<div class="py-2 text-center text-[10px] font-bold text-green-400 border border-green-500/20 rounded-lg bg-green-500/5">📍 Risk Free</div>`
           : `<button onclick="moveToBreakeven(${t.id}, ${t.buyPrice})" class="py-2 rounded-lg text-xs font-bold border border-green-500/40 text-green-400 hover:bg-green-500/10 transition-colors">📍 BE</button>`
         : `<div></div>`;
-      const partialCell = t.shares >= 2
+      const partialCell = t.shares > 0
         ? `<button onclick="openPartialCloseModal(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares})" class="py-2 rounded-lg text-xs font-bold border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors">✂️ ขายบางส่วน</button>`
         : `<div></div>`;
 
@@ -1141,7 +1149,7 @@ function _renderTraderJournal(el, entries) {
             </button>
             ${beCell}
             ${partialCell}
-            <button onclick="openCloseTradeModal(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares}, ${t.targetPrice || 'null'})"
+            <button onclick="openCloseTradeModal(${t.id}, '${safeSymbol}', ${t.buyPrice}, ${t.shares}, ${t.targetPrice || 'null'}, ${state.journalPrices[t.symbol] || 'null'})"
                     class="py-2 rounded-lg text-sm font-bold border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 transition-colors">
               ปิดไม้ →
             </button>
