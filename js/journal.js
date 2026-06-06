@@ -1353,13 +1353,25 @@ async function _checkSectorCorrelation(symbol, entryObj) {
     
     entryObj.industry = profile.finnhubIndustry; // Save for future checks
     
-    const { getJournalEntries } = await import('./db.js');
+    const { getJournalEntries, updateJournalEntry } = await import('./db.js');
     const all = await getJournalEntries('trader');
-    const opens = all.filter(e => e.status === 'open' && e.industry === profile.finnhubIndustry && e.id !== entryObj.id);
+    const opens = all.filter(e => e.status === 'open' && e.id !== entryObj.id);
     
-    if (opens.length > 0) {
-      const peers = opens.map(o => o.symbol).join(', ');
-      const msg = `⚠️ คำเตือนความเสี่ยงกลุ่มอุตสาหกรรม (Sector Correlation)\n\nคุณมีหุ้นกลุ่ม [ ${profile.finnhubIndustry} ] อยู่ในพอร์ตแล้ว (${peers})\nการซื้อ ${symbol} เพิ่ม จะทำให้ความเสี่ยงพอร์ตกระจุกตัว หากกลุ่มนี้โดนเทขาย\n\nยืนยันที่จะเข้าซื้อหรือไม่?`;
+    // Patch missing industries for old entries (backwards compatibility)
+    const peers = [];
+    for (const o of opens) {
+      if (!o.industry) {
+        const p = await fetchProfile(o.symbol, apiKey);
+        if (p && p.finnhubIndustry) {
+          o.industry = p.finnhubIndustry;
+          await updateJournalEntry(o); // save back to DB so we don't have to fetch again
+        }
+      }
+      if (o.industry === profile.finnhubIndustry) peers.push(o.symbol);
+    }
+    
+    if (peers.length > 0) {
+      const msg = `⚠️ คำเตือนความเสี่ยงกลุ่มอุตสาหกรรม (Sector Correlation)\n\nคุณมีหุ้นกลุ่ม [ ${profile.finnhubIndustry} ] อยู่ในพอร์ตแล้ว (${peers.join(', ')})\nการซื้อ ${symbol} เพิ่ม จะทำให้ความเสี่ยงพอร์ตกระจุกตัว หากกลุ่มนี้โดนเทขาย\n\nยืนยันที่จะเข้าซื้อหรือไม่?`;
       if (!confirm(msg)) return false;
     }
   } catch (e) { console.warn('Correlation check failed', e); }

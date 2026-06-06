@@ -206,7 +206,7 @@ export async function scanAllWatchlist() {
     if (!candles?.c) return { symbol: sym, name: profile?.name, price: quote.c, error: true };
 
     const { sepa, rs, score, qualifies, rawReturn } = _calcComposite(candles, quote.c);
-    return { symbol: sym, name: profile?.name, price: quote.c, sepa, rs, score, qualifies, rawReturn };
+    return { symbol: sym, name: profile?.name, price: quote.c, sepa, rs, score, qualifies, rawReturn, profile };
   });
 
   // ── True cross-sectional RS percentile rank within scanned universe ──
