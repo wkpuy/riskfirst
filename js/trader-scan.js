@@ -11,6 +11,39 @@ import { switchTab } from './nav.js';
 
 // ─── Public: scan single stock ────────────────────────────────────────────────
 
+export async function fetchMarketTrafficLight() {
+  const apiKey = localStorage.getItem('finnhubApiKey');
+  if (!apiKey) return;
+  const light = document.getElementById('market-traffic-light');
+  if (!light) return;
+
+  try {
+    const spy = await fetchQuote('SPY', apiKey);
+    if (!spy || spy.error) return;
+
+    const dp = spy.dp || 0;
+    let bg, border, icon, text, advice;
+
+    if (dp <= -1) {
+      bg = 'bg-red-500/10'; border = 'border-red-500'; icon = '🔴'; text = 'Market Bleeding'; advice = 'งดเข้าไม้ใหม่ หรือลดขนาดไม้ลง 70%';
+    } else if (dp < 0) {
+      bg = 'bg-yellow-500/10'; border = 'border-yellow-500'; icon = '🟡'; text = 'Market Down'; advice = 'ลดยอดเงินซื้อ (Half-Size)';
+    } else {
+      bg = 'bg-green-500/10'; border = 'border-green-500'; icon = '🟢'; text = 'Market Positive'; advice = 'ตลาดรวมเป็นบวก ซื้อได้ตามปกติ';
+    }
+
+    light.className = `flex flex-col mb-4 ${bg} border-l-4 ${border} rounded-r-lg p-3 transition-all`;
+    light.innerHTML = `
+      <div class="flex items-center gap-2 mb-1">
+        <div class="text-lg">${icon}</div>
+        <span class="text-sm font-bold text-white">SPY: ${dp >= 0 ? '+' : ''}${dp.toFixed(2)}%</span>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full border border-white/20 ml-2">${text}</span>
+      </div>
+      <span class="text-xs text-gray-400 pl-8">${advice}</span>
+    `;
+  } catch (e) { console.warn('Market traffic light error', e); }
+}
+
 export async function scanStock() {
   const apiKey = localStorage.getItem('finnhubApiKey');
   if (!apiKey) {
@@ -51,10 +84,18 @@ export async function scanStock() {
     if (!candles) {
       const chColor = quote.d >= 0 ? 'text-green-400' : 'text-red-400';
       const chSign  = quote.d >= 0 ? '+' : '';
+      const indBadge = profile.finnhubIndustry ? `<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">${profile.finnhubIndustry}</span>` : '';
+      const finnhubSector = profile.finnhubIndustry ? `<span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20">${profile.finnhubIndustry}</span>` : '';
       area.innerHTML = `
         <div class="card">
           <div class="flex justify-between items-start mb-4">
-            <div><h2 class="text-3xl font-extrabold tracking-tight mb-1">${symbol}</h2><span class="text-xs text-gray-400">${profile.name || symbol}</span></div>
+            <div>
+              <h2 class="text-3xl font-extrabold tracking-tight mb-1">${symbol}</h2>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-400">${profile.name || symbol}</span>
+                ${finnhubSector}
+              </div>
+            </div>
             <div class="text-right"><div class="text-2xl font-bold">$${quote.c.toFixed(2)}</div><div class="text-sm font-semibold ${chColor}">${chSign}${(quote.d||0).toFixed(2)} (${chSign}${(quote.dp||0).toFixed(2)}%)</div></div>
           </div>
           <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 text-xs text-yellow-400">
@@ -205,13 +246,20 @@ export async function scanAllWatchlist() {
       const medal   = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
       const sepaCol = r.sepa >= 7 ? 'text-green-400' : r.sepa >= 5 ? 'text-yellow-400' : 'text-red-400';
       const badge   = r.qualifies ? '<span class="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-bold">SEPA ✓</span>' : '';
+      const finnhubSector = r.profile?.finnhubIndustry ? `<span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20">${r.profile.finnhubIndustry}</span>` : '';
       return `
         <div class="bg-[var(--card-dark)] border border-[var(--border-dark)] rounded-xl p-4 cursor-pointer hover:border-purple-500/50 transition-colors"
              onclick="document.getElementById('trader-scan-input').value='${r.symbol}'; switchTraderTab('trader-scan'); scanStock()">
           <div class="flex justify-between items-center">
             <div class="flex items-center gap-2">
               <span class="text-lg">${medal}</span>
-              <div><div class="font-black text-xl tracking-tight">${r.symbol}</div><div class="text-[10px] text-gray-400">${r.name || ''}</div></div>
+              <div>
+                <div class="font-black text-xl tracking-tight">${r.symbol}</div>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <div class="text-[10px] text-gray-400">${(r.name || '').substring(0, 20)}</div>
+                  ${finnhubSector}
+                </div>
+              </div>
               ${badge}
             </div>
             <div class="text-right">

@@ -13,7 +13,7 @@ import { updateMarketRegime, renderRegimeBanner } from './regime.js';
 import { loadWatchlist, addWatchlist, removeWatchlist, addWatchlistDirect } from './watchlist.js';
 import { openCapitalModal, closeCapitalModal, saveCapital, syncPrices, renderReallocation } from './portfolio.js';
 import { updateRiskCalc, updateVIRiskCalc, applyToRiskCalc, applyToVIRisk, overrideCooldown } from './risk-calc.js';
-import { scanStock, scanAllWatchlist, selectTarget } from './trader-scan.js';
+import { scanStock, scanAllWatchlist, selectTarget, fetchMarketTrafficLight } from './trader-scan.js';
 import { scanVI, scanAllVI, calcMOSScan } from './vi-scan.js';
 import {
   loadDashboard, setTimeframe, syncJournalPrices,
@@ -291,6 +291,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const cachedRegime = JSON.parse(localStorage.getItem('regimeCache') || 'null');
   if (cachedRegime) renderRegimeBanner(cachedRegime);
   updateMarketRegime();
+  fetchMarketTrafficLight();
 
   // ── Order TTL: auto-expire open Trader orders older than configured hours ──
   try {

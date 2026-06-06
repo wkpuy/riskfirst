@@ -8,7 +8,7 @@ import { state } from './state.js';
 import { showToast, showConfirm, openModal, closeModal, escapeHtml } from './ui.js';
 import { updateRiskCalc, updateVIRiskCalc } from './risk-calc.js';
 import { renderReallocation } from './portfolio.js';
-import { fetchQuote } from './api.js';
+import { fetchQuote, fetchProfile } from './api.js';
 import { calculatePyramidRisk, checkMonthlyCooldown } from './rules.js';
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ export function openPartialCloseModal(id, symbol, buyPrice, shares, isVI = false
     <div class="flex justify-between"><span>Buy Price</span><span class="font-bold text-white">$${parseFloat(buyPrice).toFixed(2)}</span></div>
     <div class="flex justify-between"><span>Total Shares</span><span class="font-bold text-white">${shares}</span></div>`;
   document.getElementById('pc-shares').value    = '';
-  document.getElementById('pc-shares').max      = shares - 1;
+  document.getElementById('pc-shares').max      = shares;
   document.getElementById('pc-sell-price').value = '';
   document.getElementById('pc-pnl-preview').innerHTML = '<div class="text-gray-500 text-center text-xs">ใส่จำนวนและราคาขาย</div>';
   openModal('partial-close-modal', 'partial-close-sheet');
@@ -467,6 +467,10 @@ export async function confirmTradeModal() {
       const saved = await _handleNewVIEntry(entry);
       if (!saved) return;
     } else {
+      if (status === 'open' && type === 'trader') {
+        const proceed = await _checkSectorCorrelation(symbol, entry);
+        if (!proceed) return;
+      }
       entry.isApplied = true;
       entry.createdAt = Date.now();
       await addJournalEntry(entry);
@@ -650,6 +654,8 @@ export function updateCTPnl() {
   const shares = parseFloat(sellInput?.dataset.shares);
   if (!sell || !buy || !shares) return;
 
+  const pnl   = (sell - buy) * shares;
+  const pct   = ((sell - buy) / buy) * 100;
   const isProfit = pnl >= 0;
   const color = isProfit ? '#22c55e' : '#ef4444';
   preview.innerHTML = `
@@ -805,6 +811,8 @@ async function _confirmQuickSaveWithSymbol(symbol) {
     const saved = await _handleNewVIEntry(newEntry);
     if (!saved) return;
   } else {
+    const proceed = await _checkSectorCorrelation(symbol, newEntry);
+    if (!proceed) return;
     await addJournalEntry(newEntry);
   }
 
@@ -1332,3 +1340,28 @@ function _setText(id, text) { const el = document.getElementById(id); if (el) el
 function _setVal(id, val)   { const el = document.getElementById(id); if (el) el.value = val; }
 function _sanitizeFloat(v)  { return (v && v !== 'null' && !isNaN(parseFloat(v))) ? parseFloat(v) : null; }
 function _resetCTPnl()      { const p = document.getElementById('ct-pnl-preview'); if (p) p.innerHTML = `<div class="text-xs text-gray-400 mb-1">PnL (ประมาณ)</div><div class="text-2xl font-black text-gray-400">—</div>`; }
+
+// ─── Sector Correlation Helper ────────────────────────────────────────────────
+
+async function _checkSectorCorrelation(symbol, entryObj) {
+  const apiKey = localStorage.getItem('finnhubApiKey');
+  if (!apiKey) return true;
+  
+  try {
+    const profile = await fetchProfile(symbol, apiKey);
+    if (!profile || !profile.finnhubIndustry) return true;
+    
+    entryObj.industry = profile.finnhubIndustry; // Save for future checks
+    
+    const { getJournalEntries } = await import('./db.js');
+    const all = await getJournalEntries('trader');
+    const opens = all.filter(e => e.status === 'open' && e.industry === profile.finnhubIndustry && e.id !== entryObj.id);
+    
+    if (opens.length > 0) {
+      const peers = opens.map(o => o.symbol).join(', ');
+      const msg = `⚠️ คำเตือนความเสี่ยงกลุ่มอุตสาหกรรม (Sector Correlation)\n\nคุณมีหุ้นกลุ่ม [ ${profile.finnhubIndustry} ] อยู่ในพอร์ตแล้ว (${peers})\nการซื้อ ${symbol} เพิ่ม จะทำให้ความเสี่ยงพอร์ตกระจุกตัว หากกลุ่มนี้โดนเทขาย\n\nยืนยันที่จะเข้าซื้อหรือไม่?`;
+      if (!confirm(msg)) return false;
+    }
+  } catch (e) { console.warn('Correlation check failed', e); }
+  return true;
+}
