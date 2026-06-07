@@ -215,8 +215,18 @@ export async function scanAllWatchlist() {
     valid.sort((a, b) => a.rawReturn - b.rawReturn); // ascending → index 0 = weakest
     valid.forEach((r, i) => {
       const trueRS = Math.round((i / (valid.length - 1)) * 98) + 1; // 1–99
+      
+      // Fix SEPA discrepancy: adjust SEPA score based on new trueRS vs old RS
+      const oldRS = r.rs;
+      if (oldRS >= 70 && trueRS < 70) {
+        r.sepa -= 1;
+      } else if (oldRS < 70 && trueRS >= 70) {
+        r.sepa += 1;
+      }
+      r.qualifies = (r.sepa === 8);
+
       // Adjust composite score: swap out old RS portion for true RS portion
-      const oldRSPortion  = (r.rs / 99) * 40;
+      const oldRSPortion  = (oldRS / 99) * 40;
       const trueRSPortion = (trueRS / 99) * 40;
       r.score = Math.max(0, r.score - oldRSPortion + trueRSPortion);
       r.rs    = trueRS;
